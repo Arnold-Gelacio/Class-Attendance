@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Attendance System</h1>
+        <span class="today" id="today-label"></span>
+    </header>
+
+    <nav class="tabs">
+        <button data-tab="schedule-view" class="active">Schedule</button>
+        <button data-tab="scan-view">Scan QR Code</button>
+        <button data-tab="dashboard-view">Dashboard</button>
+    </nav>
+
+
+    <main>
+        <section id="schedule-view" class="view-active">
+            <div class="card">
+                <h2>Todays Class Time</h2>
+                <p style="color: blue; font-size: 20px;">Set Class Time </p>
+            
+
+            <div class="row">
+                <div>
+                    <label for="grace-minutes">Grace Minutes (minutes)</label>
+                    <input type="number" id="grace-minutes" min="0" value="15">
+                </div>
+
+                <button class="primary" id="save-schedule-btn">Save Schedule</button>
+                <span id="schedule-saved" style="color: green; font-weight: 600;"></span>
+            </div>
+
+            <footer class="hint">
+                A students who scans within the grace period counts as <b>Present</b>. After that, they will be marked as <b>Late</b>. If they scan after the class time, they will be marked as <b>Absent</b>.
+            </footer>
+            </div>
+
+            <div class="card" id="closed-banner" style="display:none; background: #655e5e;">
+                <b>Attendance for today is closed.</b> Everyone who did not scan has been marked as absent.
+            </div>
+
+            <div class="card">
+                <h2>End of Period</h2>
+                <p style="color: rgb(145, 37, 37); font-size: 14px;">When class time is over, press this once. Anyone who never scanned will be marked ABSENT</p>
+                <button class="close-attendance-btn" id="close-attendance-btn">Close Todays Attendance</button>
+            </div>
+        </section>
+
+
+        <section id="scan-view" class="view">
+            <div class="card">
+                <h2>Scan QR Code</h2>
+                <div id="reader"</div>
+                <div id="scan-feedback"></div>
+                <footer class="hint">Point a students QR code at the scanner</footer>
+                
+            </div>
+
+        </section>
+
+
+        <section id="dashboard-view" class="view">
+            <div class="stat-grid">
+                <div class="stat present"><div class="num" id="stat-present">0</div><div class="label">Present</div></div>
+                <div class="stat late"><div class="num" id="stat-late">0</div><div class="label">Late</div></div>
+                <div class="stat absent"><div class="num" id="stat-absent">0</div><div class="label">Absent</div></div>
+            </div>
+
+            <div class="card">
+                <div class="row" style="justify-content: space-between;">
+                    <h2 style="margin: 0;">Attendance Records</h2>
+                    <button class="secondary" id="export-btn">Export CSV</button>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Student Name</th>
+                            <th>ID</th>
+                            <th>Time</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="roster-body"></tbody>
+                </table>
+            </div>
+         </section>   
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <script src="students.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
