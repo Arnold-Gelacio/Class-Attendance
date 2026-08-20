@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Gate Log · PLSD Grade 12 ICT Attendance</title>
+<title>Class Attendance · Grade 12 ICT Attendance</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
@@ -71,7 +71,7 @@
   .sync-pill.offline .sync-dot{background:#F5B25C;}
   .sync-pill.error .sync-dot{background:#F87171;}
 
-  /* ===== Nav ===== */
+  /* Nav */
   .tabbar{
     position:fixed; bottom:0; left:0; right:0; z-index:50;
     background:var(--surface);
@@ -90,7 +90,7 @@
   .tab-btn.active svg{stroke:var(--accent-ink);}
   .tab-btn.active{background:var(--bg);}
 
-  /* ===== Layout ===== */
+  /*Layout */
   .view{display:none; padding:18px 16px 24px; max-width:720px; margin:0 auto;}
   .view.active{display:block;}
   .card{
@@ -99,7 +99,7 @@
   }
   .section-title{font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); margin-bottom:10px;}
 
-  /* ===== Scanner ===== */
+  /* Scanner  */
   .scan-stage{
     position:relative; border-radius:18px; overflow:hidden; background:#0B1224;
     aspect-ratio:3/4; max-height:62vh; margin-bottom:14px;
@@ -161,7 +161,7 @@
   .stamp.error{color:#F87171;}
   .ticket .close-hint{font-size:11.5px; color:#7C87A6; margin-top:16px; text-align:center;}
 
-  /* ===== Dashboard ===== */
+  /*Dashboard */
   .today-banner{
     background:linear-gradient(135deg, var(--navy-deep), #1C2C52); color:#fff;
     border-radius:var(--radius); padding:18px; margin-bottom:14px;
@@ -189,7 +189,7 @@
   .badge.absent{background:var(--absent-bg); color:var(--absent);}
   .badge.waiting{background:#EEF0EA; color:var(--ink-faint);}
 
-  /* ===== Roster / QR ===== */
+  /* Roster / QR  */
   .seg-control{display:flex; background:var(--bg); border-radius:10px; padding:3px; margin-bottom:14px;}
   .seg-btn{flex:1; border:none; background:none; padding:9px; border-radius:8px; font-weight:600; font-size:13.5px; color:var(--ink-soft);}
   .seg-btn.active{background:var(--surface); color:var(--ink); box-shadow:var(--shadow);}
@@ -200,7 +200,7 @@
   .qr-card .sname{font-size:12px; font-weight:600; line-height:1.3;}
   .qr-card .sid{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-faint); margin-top:2px;}
 
-  /* ===== Log ===== */
+  /*  Log  */
   .filter-row{display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;}
   .filter-row input[type=date], .filter-row select{
     flex:1; min-width:130px; border:1px solid var(--line); border-radius:9px; padding:10px 10px; font-size:13.5px; background:var(--surface); color:var(--ink);
@@ -233,9 +233,9 @@
 <body>
 
 <header class="app-header">
-  <div class="eyebrow"><span class="dot"></span>PHILIPPINE LYCEUM OF SAINT DOMINICQUE</div>
-  <h1>Gate Log — Grade 12 ICT</h1>
-  <div class="sub">Offline QR attendance · CSS 181-A &amp; Programming 182-A</div>
+  <div class="eyebrow"><span class="dot"></span>By - Arnold Gelacio</div>
+  <h1>Class Attendance — Grade 12 ICT</h1>
+  <div class="sub">QR attendance · CSS 181-A &amp; Programming 182-A</div>
   <div class="sync-pill" id="sync-pill"><span class="sync-dot"></span><span id="sync-pill-text">Checking sync…</span></div>
 </header>
 
@@ -364,9 +364,7 @@
 </div>
 
 <script>
-/* =========================================================
-   DATA: ROSTER + SCHEDULE
-========================================================= */
+/*Data Roster*/
 const SECTIONS = {
   CSS:  { code:'CSS',  label:'CSS · 181-A',         subject:'Computer Systems Servicing',
           schedule:[ {day:2,start:'08:00',end:'14:00'}, {day:4,start:'11:00',end:'16:00'}, {day:6,start:'12:00',end:'16:00'} ] },
@@ -409,27 +407,8 @@ Object.keys(RAW_STUDENTS).forEach(sec=>{
 });
 const STUDENTS_BY_ID = Object.fromEntries(STUDENTS.map(s=>[s.id,s]));
 
-/* =========================================================
-   FIRESTORE LAYER (cloud database, offline-first)
-   ---------------------------------------------------------
-   1. Paste the config object Firebase gave you into
-      firebaseConfig below (replace the placeholder values).
-   2. In the Firebase console: Firestore Database > Rules, paste:
 
-      rules_version = '2';
-      service cloud.firestore {
-        match /databases/{database}/documents {
-          match /scans/{docId} {
-            allow read, write: if true;
-          }
-        }
-      }
 
-   That's it — every scan will now write straight to your
-   device's local cache instantly (works fully offline), and
-   Firestore automatically pushes it to the cloud the moment
-   a connection is available. No manual "sync" step needed.
-========================================================= */
 const firebaseConfig = {
   apiKey: "AIzaSyDl3Vjmi_2TDgV8-tK0H5pwS9dHGwU-dio",
   authDomain: "cloud-storage-ffcd1.firebaseapp.com",
@@ -457,7 +436,7 @@ function initFirestore(){
     db = firebase.firestore();
     db.enablePersistence({synchronizeTabs:true}).catch(err=>{
       if(err.code==='failed-precondition'){
-        // multiple tabs open elsewhere; persistence still works in one tab
+       
       } else if(err.code==='unimplemented'){
         setSyncPill('error','This browser can\'t store offline data');
       }
@@ -505,9 +484,9 @@ function deleteScan(rid){
 
 initFirestore();
 
-/* =========================================================
+/* 
    TIME / SCHEDULE HELPERS
-========================================================= */
+ */
 function pad2(n){return n.toString().padStart(2,'0');}
 function dateKey(d){return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;}
 function timeLabel(d){return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});}
@@ -533,9 +512,9 @@ function evaluateScan(sectionCode, now){
   return {ok:true, status, sess};
 }
 
-/* =========================================================
+/*
    VIEW SWITCHING
-========================================================= */
+*/
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
@@ -549,9 +528,9 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
   });
 });
 
-/* =========================================================
+/*
    SCANNER
-========================================================= */
+*/
 let videoStream=null, scanningActive=false, lastScanKey='', lastScanAt=0;
 const SCAN_COOLDOWN_MS=2500;
 
@@ -709,9 +688,9 @@ function renderManualList(query){
   });
 }
 
-/* =========================================================
+/* 
    DASHBOARD
-========================================================= */
+ */
 async function renderDashboard(){
   const now = new Date();
   document.getElementById('dash-date').textContent = now.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric', year:'numeric'});
@@ -770,9 +749,9 @@ function formatHM(hhmm){
   return timeLabelShort(d);
 }
 
-/* =========================================================
+/*
    ROSTER / QR
-========================================================= */
+*/
 let rosterSection='CSS';
 document.querySelectorAll('#roster-seg .seg-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -808,9 +787,9 @@ function renderRoster(){
   });
 }
 
-/* =========================================================
+/* 
    LOG + EXPORT
-========================================================= */
+ */
 const logDateInput = document.getElementById('log-date');
 const logSectionSelect = document.getElementById('log-section');
 logDateInput.value = dateKey(new Date());
@@ -917,9 +896,9 @@ function exportRows(rows, filenameBase, includeDate){
   XLSX.writeFile(wb, `${filenameBase}.xlsx`);
 }
 
-/* =========================================================
+/* 
    INIT
-========================================================= */
+*/
 renderManualList('');
 renderRoster();
 </script>
