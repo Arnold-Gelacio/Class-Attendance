@@ -1,100 +1,927 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Section Attendance</title>
-<link rel="stylesheet" href="style.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Gate Log · PLSD Grade 12 ICT Attendance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#F3F4F0;
+    --surface:#FFFFFF;
+    --ink:#16213E;
+    --ink-soft:#5B6478;
+    --ink-faint:#9AA1B2;
+    --accent:#C9A227;
+    --accent-ink:#5C4A0A;
+    --ontime:#2F7A4D;
+    --ontime-bg:#E6F2EA;
+    --late:#C97A2C;
+    --late-bg:#FBEDDD;
+    --absent:#B0413E;
+    --absent-bg:#FBEAE9;
+    --line:#DFDCD1;
+    --navy-deep:#0F1830;
+    --radius:14px;
+    --shadow: 0 2px 10px rgba(15,24,48,0.06), 0 1px 2px rgba(15,24,48,0.05);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding-bottom:84px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif; margin:0; letter-spacing:-0.01em;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  button{font-family:inherit; cursor:pointer;}
+  input,select{font-family:inherit;}
+
+  /* ===== Header ===== */
+  .app-header{
+    background:var(--navy-deep);
+    color:#F3F4F0;
+    padding:18px 20px 16px;
+    position:sticky; top:0; z-index:40;
+  }
+  .app-header .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--accent); margin-bottom:4px; display:flex; align-items:center; gap:8px;
+  }
+  .app-header .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block;}
+  .app-header h1{font-size:20px; color:#fff;}
+  .app-header .sub{font-size:12.5px; color:#AEB6CC; margin-top:3px;}
+  .sync-pill{
+    display:inline-flex; align-items:center; gap:6px; margin-top:10px;
+    background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.14);
+    border-radius:20px; padding:5px 11px; font-size:11.5px; color:#D8DCEA;
+  }
+  .sync-dot{width:7px; height:7px; border-radius:50%; background:#8994B3;}
+  .sync-pill.synced .sync-dot{background:#4ADE80;}
+  .sync-pill.offline .sync-dot{background:#F5B25C;}
+  .sync-pill.error .sync-dot{background:#F87171;}
+
+  /* ===== Nav ===== */
+  .tabbar{
+    position:fixed; bottom:0; left:0; right:0; z-index:50;
+    background:var(--surface);
+    border-top:1px solid var(--line);
+    display:flex;
+    padding:6px 6px calc(6px + env(safe-area-inset-bottom));
+    box-shadow: 0 -2px 12px rgba(15,24,48,0.06);
+  }
+  .tab-btn{
+    flex:1; background:none; border:none; display:flex; flex-direction:column;
+    align-items:center; gap:3px; padding:8px 2px 6px; border-radius:10px;
+    color:var(--ink-faint); font-size:11px; font-weight:600;
+  }
+  .tab-btn svg{width:22px;height:22px; stroke:var(--ink-faint); fill:none; stroke-width:1.8;}
+  .tab-btn.active{color:var(--ink);}
+  .tab-btn.active svg{stroke:var(--accent-ink);}
+  .tab-btn.active{background:var(--bg);}
+
+  /* ===== Layout ===== */
+  .view{display:none; padding:18px 16px 24px; max-width:720px; margin:0 auto;}
+  .view.active{display:block;}
+  .card{
+    background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow);
+    padding:16px; margin-bottom:14px; border:1px solid var(--line);
+  }
+  .section-title{font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); margin-bottom:10px;}
+
+  /* ===== Scanner ===== */
+  .scan-stage{
+    position:relative; border-radius:18px; overflow:hidden; background:#0B1224;
+    aspect-ratio:3/4; max-height:62vh; margin-bottom:14px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  #scanner-video{width:100%; height:100%; object-fit:cover; display:none;}
+  .scan-placeholder{color:#8994B3; text-align:center; padding:24px; font-size:13.5px; line-height:1.5;}
+  .scan-placeholder svg{width:40px;height:40px; stroke:#5A6690; fill:none; stroke-width:1.5; margin-bottom:10px;}
+  .viewfinder{position:absolute; inset:14%; pointer-events:none; display:none;}
+  .viewfinder span{position:absolute; width:26px; height:26px; border:3px solid var(--accent);}
+  .viewfinder .tl{top:0;left:0;border-right:none;border-bottom:none;border-top-left-radius:8px;}
+  .viewfinder .tr{top:0;right:0;border-left:none;border-bottom:none;border-top-right-radius:8px;}
+  .viewfinder .bl{bottom:0;left:0;border-right:none;border-top:none;border-bottom-left-radius:8px;}
+  .viewfinder .br{bottom:0;right:0;border-left:none;border-top:none;border-bottom-right-radius:8px;}
+  .scan-live-tag{position:absolute; top:12px; left:12px; background:rgba(11,18,36,0.65); color:#fff;
+    font-size:11px; font-family:'IBM Plex Mono',monospace; padding:5px 10px; border-radius:20px;
+    display:none; align-items:center; gap:6px;}
+  .scan-live-tag .pulse{width:7px;height:7px;border-radius:50%;background:#4ADE80; animation:pulse 1.4s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+
+  .scan-controls{display:flex; gap:10px;}
+  .btn{
+    border:none; border-radius:11px; padding:13px 18px; font-weight:600; font-size:14.5px;
+    display:flex; align-items:center; justify-content:center; gap:8px; transition:transform .1s ease;
+  }
+  .btn:active{transform:scale(.97);}
+  .btn-primary{background:var(--navy-deep); color:#fff; flex:1;}
+  .btn-stop{background:var(--absent-bg); color:var(--absent); flex:1;}
+  .btn-ghost{background:var(--bg); color:var(--ink); border:1px solid var(--line);}
+  .btn-accent{background:var(--accent); color:var(--accent-ink);}
+  .btn-block{width:100%;}
+  .btn-sm{padding:9px 14px; font-size:13px; border-radius:9px;}
+
+  /* Ticket stamp */
+  .ticket-overlay{
+    position:fixed; inset:0; background:rgba(15,24,48,0.55); z-index:100;
+    display:none; align-items:flex-end; justify-content:center; padding:0 16px calc(100px + env(safe-area-inset-bottom));
+  }
+  .ticket-overlay.show{display:flex;}
+  .ticket{
+    width:100%; max-width:420px; background:var(--navy-deep); color:#fff;
+    border-radius:16px 16px 0 0; padding:22px 22px 26px; position:relative;
+    animation:ticketUp .32s cubic-bezier(.2,.9,.3,1.2);
+    clip-path: polygon(0% 0%,100% 0%,100% 100%,96% 92%,92% 100%,88% 92%,84% 100%,80% 92%,76% 100%,72% 92%,68% 100%,64% 92%,60% 100%,56% 92%,52% 100%,48% 92%,44% 100%,40% 92%,36% 100%,32% 92%,28% 100%,24% 92%,20% 100%,16% 92%,12% 100%,8% 92%,4% 100%,0% 92%);
+  }
+  @keyframes ticketUp{from{transform:translateY(40px); opacity:0;}to{transform:translateY(0); opacity:1;}}
+  .ticket .eyebrow{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--accent);}
+  .ticket .name{font-family:'Space Grotesk',sans-serif; font-size:21px; font-weight:700; margin-top:6px;}
+  .ticket .meta{font-size:12.5px; color:#AEB6CC; margin-top:2px;}
+  .ticket .time-row{display:flex; align-items:center; justify-content:space-between; margin-top:16px;}
+  .ticket .time{font-family:'IBM Plex Mono',monospace; font-size:30px; font-weight:600; letter-spacing:.01em;}
+  .stamp{
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; letter-spacing:.08em;
+    padding:7px 14px; border-radius:8px; border:2px dashed currentColor; transform:rotate(-6deg);
+    text-transform:uppercase;
+  }
+  .stamp.ontime{color:#4ADE80;}
+  .stamp.late{color:#F5B25C;}
+  .stamp.error{color:#F87171;}
+  .ticket .close-hint{font-size:11.5px; color:#7C87A6; margin-top:16px; text-align:center;}
+
+  /* ===== Dashboard ===== */
+  .today-banner{
+    background:linear-gradient(135deg, var(--navy-deep), #1C2C52); color:#fff;
+    border-radius:var(--radius); padding:18px; margin-bottom:14px;
+  }
+  .today-banner .eyebrow{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; color:var(--accent); text-transform:uppercase;}
+  .today-banner .big-date{font-family:'Space Grotesk',sans-serif; font-size:19px; font-weight:700; margin-top:4px;}
+  .session-pill-row{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;}
+  .session-pill{background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.16); border-radius:10px; padding:8px 12px; font-size:12.5px;}
+  .session-pill .lbl{font-weight:700;}
+  .session-pill.live{background:rgba(74,222,128,0.16); border-color:rgba(74,222,128,0.4);}
+
+  .stat-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px;}
+  .stat-box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 10px; text-align:center;}
+  .stat-box .num{font-family:'IBM Plex Mono',monospace; font-size:24px; font-weight:600;}
+  .stat-box .lbl{font-size:11px; color:var(--ink-soft); margin-top:2px; text-transform:uppercase; letter-spacing:.04em;}
+  .stat-box.ontime .num{color:var(--ontime);}
+  .stat-box.late .num{color:var(--late);}
+  .stat-box.absent .num{color:var(--absent);}
+
+  .roster-live-row{display:flex; align-items:center; justify-content:space-between; padding:10px 2px; border-bottom:1px solid var(--line); font-size:14px;}
+  .roster-live-row:last-child{border-bottom:none;}
+  .badge{font-size:11px; font-weight:700; padding:4px 9px; border-radius:20px; text-transform:uppercase; letter-spacing:.03em;}
+  .badge.ontime{background:var(--ontime-bg); color:var(--ontime);}
+  .badge.late{background:var(--late-bg); color:var(--late);}
+  .badge.absent{background:var(--absent-bg); color:var(--absent);}
+  .badge.waiting{background:#EEF0EA; color:var(--ink-faint);}
+
+  /* ===== Roster / QR ===== */
+  .seg-control{display:flex; background:var(--bg); border-radius:10px; padding:3px; margin-bottom:14px;}
+  .seg-btn{flex:1; border:none; background:none; padding:9px; border-radius:8px; font-weight:600; font-size:13.5px; color:var(--ink-soft);}
+  .seg-btn.active{background:var(--surface); color:var(--ink); box-shadow:var(--shadow);}
+
+  .qr-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px;}
+  .qr-card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px; text-align:center;}
+  .qr-card .qrbox{display:flex; align-items:center; justify-content:center; margin-bottom:8px;}
+  .qr-card .sname{font-size:12px; font-weight:600; line-height:1.3;}
+  .qr-card .sid{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-faint); margin-top:2px;}
+
+  /* ===== Log ===== */
+  .filter-row{display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;}
+  .filter-row input[type=date], .filter-row select{
+    flex:1; min-width:130px; border:1px solid var(--line); border-radius:9px; padding:10px 10px; font-size:13.5px; background:var(--surface); color:var(--ink);
+  }
+  table.logtable{width:100%; border-collapse:collapse; font-size:13px;}
+  table.logtable th{text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); padding:6px 6px; border-bottom:1px solid var(--line);}
+  table.logtable td{padding:9px 6px; border-bottom:1px solid var(--line); vertical-align:middle;}
+  table.logtable td.time{font-family:'IBM Plex Mono',monospace; font-size:12.5px;}
+  .del-btn{border:none; background:none; color:var(--ink-faint); font-size:16px; padding:2px 6px;}
+  .empty-note{color:var(--ink-faint); font-size:13.5px; text-align:center; padding:30px 10px;}
+
+  .search-box{position:relative; margin-bottom:10px;}
+  .search-box input{width:100%; border:1px solid var(--line); border-radius:9px; padding:10px 12px; font-size:14px;}
+  .manual-list{max-height:220px; overflow-y:auto; margin-top:8px;}
+  .manual-row{display:flex; align-items:center; justify-content:space-between; padding:8px 4px; border-bottom:1px solid var(--line); font-size:13.5px;}
+
+  .setup-banner{background:var(--late-bg); border:1px solid #ECD3AE; color:var(--accent-ink); border-radius:12px; padding:12px 14px; font-size:12.5px; line-height:1.5; margin-bottom:14px;}
+
+  @media print{
+    .app-header, .tabbar, .no-print{display:none !important;}
+    body{padding:0; background:#fff;}
+    .view{display:block !important; max-width:none; padding:0;}
+    #view-roster{display:block !important;}
+    .view:not(#view-roster){display:none !important;}
+    .qr-grid{grid-template-columns:repeat(3,1fr);}
+    .qr-card{break-inside:avoid; border:1px dashed #999;}
+  }
+</style>
 </head>
 <body>
 
-<header>
-  <h1>Section Attendance</h1>
-  <span class="today" id="today-label"></span>
+<header class="app-header">
+  <div class="eyebrow"><span class="dot"></span>PHILIPPINE LYCEUM OF SAINT DOMINICQUE</div>
+  <h1>Gate Log — Grade 12 ICT</h1>
+  <div class="sub">Offline QR attendance · CSS 181-A &amp; Programming 182-A</div>
+  <div class="sync-pill" id="sync-pill"><span class="sync-dot"></span><span id="sync-pill-text">Checking sync…</span></div>
 </header>
 
-<nav class="tabs">
-  <button data-tab="schedule-view" class="active">Schedule</button>
-  <button data-tab="scan-view">Scan QR</button>
-  <button data-tab="dashboard-view">Dashboard</button>
+<!-- SCAN VIEW -->
+<section class="view active" id="view-scan">
+  <div id="offline-setup-banner" class="setup-banner" style="display:none;">
+    Storage isn't available in this preview window. Download this file and open it directly in your browser (or host it, e.g. on GitHub Pages) for scans to actually save. See the note at the bottom of the Log tab.
+  </div>
+
+  <div class="scan-stage">
+    <video id="scanner-video" playsinline muted></video>
+    <canvas id="scanner-canvas" style="display:none;"></canvas>
+    <div class="scan-placeholder" id="scan-placeholder">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3zM20 14v3M17 20h3"/></svg>
+      Tap "Start Scanning" and point the camera at a student's QR code.
+    </div>
+    <div class="viewfinder" id="viewfinder"><span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span></div>
+    <div class="scan-live-tag" id="scan-live-tag"><span class="pulse"></span>SCANNING</div>
+  </div>
+
+  <div class="scan-controls">
+    <button class="btn btn-primary" id="btn-start-scan">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-14 9V3z"/></svg>
+      Start Scanning
+    </button>
+    <button class="btn btn-stop" id="btn-stop-scan" style="display:none;">Stop</button>
+  </div>
+
+  <div class="card" style="margin-top:14px;">
+    <div class="section-title">Can't scan? Mark manually</div>
+    <div class="search-box">
+      <input type="text" id="manual-search" placeholder="Type a student's name…">
+    </div>
+    <div class="manual-list" id="manual-list"></div>
+  </div>
+</section>
+
+<!-- DASHBOARD VIEW -->
+<section class="view" id="view-dashboard">
+  <div class="today-banner">
+    <div class="eyebrow">Today</div>
+    <div class="big-date" id="dash-date">—</div>
+    <div class="session-pill-row" id="dash-sessions"></div>
+  </div>
+
+  <div id="dash-live-section"></div>
+</section>
+
+<!-- ROSTER / QR VIEW -->
+<section class="view" id="view-roster">
+  <div class="no-print seg-control" id="roster-seg">
+    <button class="seg-btn active" data-sec="CSS">CSS · 181-A</button>
+    <button class="seg-btn" data-sec="PROG">Programming · 182-A</button>
+  </div>
+  <div class="no-print" style="display:flex; gap:8px; margin-bottom:14px;">
+    <button class="btn btn-accent btn-block" id="btn-print-roster">Print QR ID Cards</button>
+  </div>
+  <div class="qr-grid" id="qr-grid"></div>
+</section>
+
+<!-- LOG VIEW -->
+<section class="view" id="view-log">
+  <div class="card">
+    <div class="section-title">Filter</div>
+    <div class="filter-row">
+      <input type="date" id="log-date">
+      <select id="log-section">
+        <option value="ALL">All sections</option>
+        <option value="CSS">CSS · 181-A</option>
+        <option value="PROG">Programming · 182-A</option>
+      </select>
+    </div>
+    <div class="stat-grid" id="log-stats"></div>
+    <table class="logtable">
+      <thead><tr><th>Name</th><th>Sec</th><th>Time</th><th>Status</th><th></th></tr></thead>
+      <tbody id="log-tbody"></tbody>
+    </table>
+    <div class="empty-note" id="log-empty" style="display:none;">No class was scheduled here on this date.</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Export</div>
+    <button class="btn btn-accent btn-block" id="btn-export-filtered">Export this view to Excel</button>
+    <div style="height:8px;"></div>
+    <button class="btn btn-ghost btn-block" id="btn-export-all">Export entire record (.xlsx)</button>
+  </div>
+
+  <div class="card" style="font-size:12px; color:var(--ink-soft); line-height:1.6;">
+    <strong style="color:var(--ink);">About the sync status pill</strong><br>
+    Every scan saves to this device instantly, offline or not — nothing waits on a connection. When there's internet, Firestore quietly pushes those scans to your cloud database in the background, and the pill in the header turns green ("Connected"). No wifi at the exact moment of scanning? It stays amber ("Offline — saving on device") and catches up automatically the next time this device gets a signal — no button to press, nothing to remember. Open this file directly in a real browser tab (not this chat preview) for storage to work at all.
+  </div>
+</section>
+
+<!-- TAB BAR -->
+<nav class="tabbar">
+  <button class="tab-btn active" data-view="scan">
+    <svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 011-1h3M20 8V5a1 1 0 00-1-1h-3M4 16v3a1 1 0 001 1h3M20 16v3a1 1 0 01-1 1h-3M4 12h16"/></svg>
+    Scan
+  </button>
+  <button class="tab-btn" data-view="dashboard">
+    <svg viewBox="0 0 24 24"><path d="M4 19V10M10 19V5M16 19v-7M4 19h16"/></svg>
+    Today
+  </button>
+  <button class="tab-btn" data-view="roster">
+    <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6 16c0-1.7 1.3-3 3-3s3 1.3 3 3M14 10h4M14 14h4"/></svg>
+    Roster
+  </button>
+  <button class="tab-btn" data-view="log">
+    <svg viewBox="0 0 24 24"><path d="M8 4h13M8 12h13M8 20h13M3 4h.01M3 12h.01M3 20h.01"/></svg>
+    Log
+  </button>
 </nav>
 
-<main>
-
-  <!-- ===================== SCHEDULE TAB ===================== -->
-  <section id="schedule-view" class="view active">
-    <div class="card">
-      <h2>Today's class time</h2>
-      <p style="color:var(--ink-soft); font-size:13.5px;">
-        Set this once before class starts. It's saved per day, so tomorrow you'll set a fresh time.
-      </p>
-      <div class="row">
-        <div>
-          <label for="start-time">Class starts at</label>
-          <input type="time" id="start-time" />
-        </div>
-        <div>
-          <label for="grace-minutes">Grace period (minutes)</label>
-          <input type="number" id="grace-minutes" min="0" value="15" />
-        </div>
-        <button class="primary" id="save-schedule-btn">Save</button>
-        <span id="schedule-saved" style="color:var(--present); font-weight:600;"></span>
-      </div>
-      <footer class="hint">
-        A student who scans within the grace period counts as <b>PRESENT</b>. After that, they're <b>LATE</b>.
-      </footer>
+<!-- TICKET OVERLAY -->
+<div class="ticket-overlay" id="ticket-overlay">
+  <div class="ticket" id="ticket">
+    <div class="eyebrow" id="ticket-eyebrow">GATE LOG</div>
+    <div class="name" id="ticket-name">—</div>
+    <div class="meta" id="ticket-meta">—</div>
+    <div class="time-row">
+      <div class="time mono" id="ticket-time">--:--:--</div>
+      <div class="stamp ontime" id="ticket-stamp">ON TIME</div>
     </div>
+    <div class="close-hint">Tap anywhere to dismiss · resuming scan…</div>
+  </div>
+</div>
 
-    <div class="card" id="closed-banner" style="display:none; background:#fdecec;">
-      <b>Attendance for today is closed.</b> Everyone who didn't scan has been marked absent.
-    </div>
+<script>
+/* =========================================================
+   DATA: ROSTER + SCHEDULE
+========================================================= */
+const SECTIONS = {
+  CSS:  { code:'CSS',  label:'CSS · 181-A',         subject:'Computer Systems Servicing',
+          schedule:[ {day:2,start:'08:00',end:'14:00'}, {day:4,start:'11:00',end:'16:00'}, {day:6,start:'12:00',end:'16:00'} ] },
+  PROG: { code:'PROG', label:'Programming · 182-A', subject:'Programming',
+          schedule:[ {day:2,start:'12:00',end:'18:00'}, {day:4,start:'11:00',end:'16:00'}, {day:6,start:'12:00',end:'16:00'} ] }
+};
+const GRACE_MINUTES = 30;
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
-    <div class="card">
-      <h2>End of period</h2>
-      <p style="color:var(--ink-soft); font-size:13.5px;">
-        When class time is over, press this once. Anyone who never scanned will be marked ABSENT.
-      </p>
-      <button class="secondary" id="close-attendance-btn">Close today's attendance</button>
-    </div>
-  </section>
+const RAW_STUDENTS = {
+  CSS: {
+    M: ["Adornado, Vincent Centeno","Arroyo, John Paul Corpuz","Bermejo, Ar Jhay None Ullero","Camero, Florentino Jr. Castro",
+        "Carillo, Ronald Jay Muaña","Cruz, Samuel James D.","Doctor, Dexter Lirio","Estrella, Rowan Christopher San Pedro",
+        "Gelacio, Arnold Jr. Elopre","Longcop, Saviour Baron Balagtas","Macabale, John Lloyd Tiangco","Matol, Sean Berto",
+        "Mendoza, Marc Neil Pinto","Molo, Mhart Yuri Tongol","Ortega, Jemvey Ogues","Panes, Angelo Perez",
+        "Peralta, Roosevelt Jr. Delacruz","Razon, Anthony James"],
+    F: ["Caranglan, Czhar Colleen Morales","Cepeda, Maria Christina Cuano","Deloyas, Claire Madison Bernardo",
+        "Lagatuz, Jhinlie Saenz","Padit, Larrah Hillary Menor","Restar, Ma Sydney Grace Pateño","Valbuena, Kessie Angela"]
+  },
+  PROG: {
+    M: ["Bacalangco, Jhon Rupert Demain","Cabangunay, Dave Edaño","Calip, Shan Kyle Agabriel","Caliso, Gian Kyle Nolasco",
+        "Consolacion, Rain Obando","Consolacion, Rejay Obando","De Nieva, Gemar Mariano","Delos Santos, Jerson Esteban",
+        "Domingo, Juan Miguel Romero","Echevarria, Euan Organo","Elbambuena, Melvin Gutierrez","Enem, Jhon Paul",
+        "Granada, Drake G. Rhaylee","Lotino, Lord Cedrick Nolasco","Marces, Johnmark Abes","Mendoza, Ralph Florence Cadano",
+        "Naig, John Rheylance Basanta","Porwelos, Gabriel Mirando","San Juan, Jiro Amarille"],
+    F: ["Equieza, Andrea Joy Borromeo","Garces, Hazel Mitch Tayong","Gupid, Jaizhel Mitch Polido"]
+  }
+};
 
-  <!-- ===================== SCAN TAB ===================== -->
-  <section id="scan-view" class="view">
-    <div class="card">
-      <h2>Scan student QR codes</h2>
-      <div id="reader"></div>
-      <div id="scan-feedback"></div>
-      <footer class="hint">Point a student's QR code at the camera. Each student can only be scanned once per day.</footer>
-    </div>
-  </section>
+const STUDENTS = [];
+Object.keys(RAW_STUDENTS).forEach(sec=>{
+  let n = 1;
+  ['M','F'].forEach(g=>{
+    RAW_STUDENTS[sec][g].forEach(name=>{
+      const id = `${sec}-${String(n).padStart(2,'0')}`;
+      STUDENTS.push({ id, section:sec, name, gender:g, qrPayload:`PLSD-ATT:${id}` });
+      n++;
+    });
+  });
+});
+const STUDENTS_BY_ID = Object.fromEntries(STUDENTS.map(s=>[s.id,s]));
 
-  <!-- ===================== DASHBOARD TAB ===================== -->
-  <section id="dashboard-view" class="view">
-    <div class="stat-grid">
-      <div class="stat present"><div class="num" id="stat-present">0</div><div class="label">Present</div></div>
-      <div class="stat late"><div class="num" id="stat-late">0</div><div class="label">Late</div></div>
-      <div class="stat absent"><div class="num" id="stat-absent">0</div><div class="label">Absent</div></div>
-    </div>
+/* =========================================================
+   FIRESTORE LAYER (cloud database, offline-first)
+   ---------------------------------------------------------
+   1. Paste the config object Firebase gave you into
+      firebaseConfig below (replace the placeholder values).
+   2. In the Firebase console: Firestore Database > Rules, paste:
 
-    <div class="card">
-      <div class="row" style="justify-content: space-between;">
-        <h2 style="margin:0;">Today's roster</h2>
-        <button class="secondary" id="export-btn">Export CSV</button>
-      </div>
-      <table>
-        <thead>
-          <tr><th>Student</th><th>ID</th><th>Time</th><th>Status</th></tr>
-        </thead>
-        <tbody id="roster-body"></tbody>
-      </table>
-    </div>
-  </section>
+      rules_version = '2';
+      service cloud.firestore {
+        match /databases/{database}/documents {
+          match /scans/{docId} {
+            allow read, write: if true;
+          }
+        }
+      }
 
-</main>
+   That's it — every scan will now write straight to your
+   device's local cache instantly (works fully offline), and
+   Firestore automatically pushes it to the cloud the moment
+   a connection is available. No manual "sync" step needed.
+========================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyDl3Vjmi_2TDgV8-tK0H5pwS9dHGwU-dio",
+  authDomain: "cloud-storage-ffcd1.firebaseapp.com",
+  projectId: "cloud-storage-ffcd1",
+  storageBucket: "cloud-storage-ffcd1.firebasestorage.app",
+  messagingSenderId: "387687932274",
+  appId: "1:387687932274:web:a04cdd4ba9f234af36fdeb"
+};
 
-<!-- QR scanning library, loaded from a CDN -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
-<script src="students.js"></script>
-<script src="app.js"></script>
+const CONFIG_IS_PLACEHOLDER = firebaseConfig.apiKey.startsWith('PASTE_');
+const STORE = 'scans';
+let db = null;
+let dbAvailable = false;
+
+function initFirestore(){
+  if(CONFIG_IS_PLACEHOLDER){
+    setSyncPill('error', 'Firebase not configured');
+    document.getElementById('offline-setup-banner').style.display='block';
+    document.getElementById('offline-setup-banner').textContent =
+      'This copy isn\'t connected to a database yet. Paste your Firebase config near the top of the <script> block (search for "PASTE_YOUR_API_KEY_HERE") for scans to save anywhere.';
+    return;
+  }
+  try{
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    db.enablePersistence({synchronizeTabs:true}).catch(err=>{
+      if(err.code==='failed-precondition'){
+        // multiple tabs open elsewhere; persistence still works in one tab
+      } else if(err.code==='unimplemented'){
+        setSyncPill('error','This browser can\'t store offline data');
+      }
+    });
+    dbAvailable = true;
+    setSyncPill(navigator.onLine ? 'synced' : 'offline', navigator.onLine ? 'Connected' : 'Offline — saving on device');
+  }catch(e){
+    dbAvailable=false;
+    setSyncPill('error','Could not connect to database');
+    document.getElementById('offline-setup-banner').style.display='block';
+  }
+}
+
+function setSyncPill(state, text){
+  const pill=document.getElementById('sync-pill');
+  if(!pill) return;
+  pill.className='sync-pill '+state;
+  document.getElementById('sync-pill-text').textContent=text;
+}
+window.addEventListener('online', ()=> dbAvailable && setSyncPill('synced','Back online — syncing'));
+window.addEventListener('offline', ()=> dbAvailable && setSyncPill('offline','Offline — saving on device'));
+
+function addScan(record){
+  if(!dbAvailable) return Promise.reject(new Error('no-db'));
+  const docRef = db.collection(STORE).doc(record.studentDateKey);
+  return docRef.get({source:'cache'}).catch(()=>({exists:false})).then(snap=>{
+    if(snap && snap.exists){
+      const err = new Error('duplicate'); err.code='duplicate'; throw err;
+    }
+    return docRef.set(record).then(()=>record.studentDateKey);
+  });
+}
+function getAllScans(){
+  if(!dbAvailable) return Promise.resolve([]);
+  return db.collection(STORE).get().then(snap=>{
+    const rows=[];
+    snap.forEach(doc=> rows.push(Object.assign({rid:doc.id}, doc.data())));
+    return rows;
+  });
+}
+function deleteScan(rid){
+  if(!dbAvailable) return Promise.resolve();
+  return db.collection(STORE).doc(rid).delete();
+}
+
+initFirestore();
+
+/* =========================================================
+   TIME / SCHEDULE HELPERS
+========================================================= */
+function pad2(n){return n.toString().padStart(2,'0');}
+function dateKey(d){return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;}
+function timeLabel(d){return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});}
+function timeLabelShort(d){return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});}
+
+function sessionForDate(sectionCode, dateObj){
+  const day = dateObj.getDay();
+  const sched = SECTIONS[sectionCode].schedule.find(s=>s.day===day);
+  if(!sched) return null;
+  const [sh,sm]=sched.start.split(':').map(Number);
+  const [eh,em]=sched.end.split(':').map(Number);
+  const start=new Date(dateObj); start.setHours(sh,sm,0,0);
+  const end=new Date(dateObj); end.setHours(eh,em,0,0);
+  const graceEnd=new Date(start.getTime()+GRACE_MINUTES*60000);
+  return {sectionCode, start, end, graceEnd, startLabel:sched.start, endLabel:sched.end};
+}
+
+function evaluateScan(sectionCode, now){
+  const sess = sessionForDate(sectionCode, now);
+  if(!sess) return {ok:false, reason:'noclass'};
+  if(now > sess.end) return {ok:false, reason:'ended', sess};
+  const status = now <= sess.graceEnd ? 'On Time' : 'Late';
+  return {ok:true, status, sess};
+}
+
+/* =========================================================
+   VIEW SWITCHING
+========================================================= */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('view-'+btn.dataset.view).classList.add('active');
+    if(btn.dataset.view==='dashboard') renderDashboard();
+    if(btn.dataset.view==='roster') renderRoster();
+    if(btn.dataset.view==='log') renderLog();
+    if(btn.dataset.view==='scan') renderManualList('');
+  });
+});
+
+/* =========================================================
+   SCANNER
+========================================================= */
+let videoStream=null, scanningActive=false, lastScanKey='', lastScanAt=0;
+const SCAN_COOLDOWN_MS=2500;
+
+document.getElementById('btn-start-scan').addEventListener('click', startScanner);
+document.getElementById('btn-stop-scan').addEventListener('click', stopScanner);
+
+async function startScanner(){
+  try{
+    videoStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+  }catch(e){
+    try{ videoStream = await navigator.mediaDevices.getUserMedia({video:true}); }
+    catch(e2){ alert('Camera access was blocked or unavailable. If you opened this file directly from disk, some browsers require HTTPS or localhost for the camera — try hosting it (e.g. GitHub Pages) instead.'); return; }
+  }
+  const video=document.getElementById('scanner-video');
+  video.srcObject=videoStream;
+  await video.play();
+  video.style.display='block';
+  document.getElementById('scan-placeholder').style.display='none';
+  document.getElementById('viewfinder').style.display='block';
+  document.getElementById('scan-live-tag').style.display='flex';
+  document.getElementById('btn-start-scan').style.display='none';
+  document.getElementById('btn-stop-scan').style.display='flex';
+  scanningActive=true;
+  requestAnimationFrame(scanFrame);
+}
+
+function stopScanner(){
+  scanningActive=false;
+  if(videoStream){ videoStream.getTracks().forEach(t=>t.stop()); videoStream=null; }
+  const video=document.getElementById('scanner-video');
+  video.style.display='none';
+  document.getElementById('scan-placeholder').style.display='block';
+  document.getElementById('viewfinder').style.display='none';
+  document.getElementById('scan-live-tag').style.display='none';
+  document.getElementById('btn-start-scan').style.display='flex';
+  document.getElementById('btn-stop-scan').style.display='none';
+}
+
+function scanFrame(){
+  if(!scanningActive) return;
+  const video=document.getElementById('scanner-video');
+  const canvas=document.getElementById('scanner-canvas');
+  if(video.readyState===video.HAVE_ENOUGH_DATA){
+    canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+    const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+    const code = window.jsQR ? jsQR(imageData.data, imageData.width, imageData.height) : null;
+    if(code && code.data){ handleDecodedPayload(code.data); }
+  }
+  if(scanningActive) requestAnimationFrame(scanFrame);
+}
+
+function beep(kind){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type='sine';
+    if(kind==='ok'){ o.frequency.value=880; g.gain.setValueAtTime(0.12,ctx.currentTime); o.start(); o.stop(ctx.currentTime+0.12); }
+    else if(kind==='late'){ o.frequency.value=520; g.gain.setValueAtTime(0.12,ctx.currentTime); o.start(); o.stop(ctx.currentTime+0.18); }
+    else { o.frequency.value=220; g.gain.setValueAtTime(0.12,ctx.currentTime); o.start(); o.stop(ctx.currentTime+0.25); }
+  }catch(e){/* audio not critical */}
+}
+
+async function handleDecodedPayload(payload){
+  const now = Date.now();
+  if(payload===lastScanKey && (now-lastScanAt)<SCAN_COOLDOWN_MS) return;
+  if(!payload.startsWith('PLSD-ATT:')) return;
+  const id = payload.replace('PLSD-ATT:','');
+  const student = STUDENTS_BY_ID[id];
+  if(!student) return;
+  lastScanKey=payload; lastScanAt=now;
+  await recordAttendance(student, 'qr');
+}
+
+async function recordAttendance(student, source){
+  const nowDate = new Date();
+  const evalResult = evaluateScan(student.section, nowDate);
+  if(!evalResult.ok){
+    const msg = evalResult.reason==='ended'
+      ? `Class already ended for ${SECTIONS[student.section].label} today.`
+      : `No ${SECTIONS[student.section].label} class scheduled right now.`;
+    showTicket({error:true, name:student.name, meta:msg, time:timeLabel(nowDate)});
+    beep('error');
+    return;
+  }
+  const dk = dateKey(nowDate);
+  const record = {
+    studentId: student.id, name: student.name, section: student.section,
+    date: dk, dayLabel: DAY_NAMES[nowDate.getDay()],
+    scheduledStart: evalResult.sess.startLabel, scheduledEnd: evalResult.sess.endLabel,
+    timestampISO: nowDate.toISOString(), timeLabel: timeLabel(nowDate),
+    status: evalResult.status, source,
+    studentDateKey: `${student.id}_${dk}`
+  };
+  try{
+    await addScan(record);
+    showTicket({
+      name:student.name,
+      meta:`${SECTIONS[student.section].label} · ${DAY_NAMES[nowDate.getDay()]}`,
+      time:timeLabel(nowDate),
+      status:evalResult.status
+    });
+    beep(evalResult.status==='On Time' ? 'ok' : 'late');
+  }catch(e){
+    if(e && e.code==='duplicate'){
+      showTicket({error:true, name:student.name, meta:'Already checked in today.', time:timeLabel(nowDate)});
+      beep('error');
+    } else {
+      showTicket({error:true, name:student.name, meta:'Could not save — database not connected yet.', time:timeLabel(nowDate)});
+      beep('error');
+    }
+  }
+}
+
+function showTicket({name, meta, time, status, error}){
+  document.getElementById('ticket-eyebrow').textContent = error ? 'NOT RECORDED' : 'CHECKED IN';
+  document.getElementById('ticket-name').textContent = name;
+  document.getElementById('ticket-meta').textContent = meta;
+  document.getElementById('ticket-time').textContent = time;
+  const stampEl = document.getElementById('ticket-stamp');
+  if(error){ stampEl.className='stamp error'; stampEl.textContent='NOTE'; }
+  else if(status==='On Time'){ stampEl.className='stamp ontime'; stampEl.textContent='ON TIME'; }
+  else { stampEl.className='stamp late'; stampEl.textContent='LATE'; }
+  const overlay=document.getElementById('ticket-overlay');
+  overlay.classList.add('show');
+  clearTimeout(showTicket._t);
+  showTicket._t = setTimeout(()=>overlay.classList.remove('show'), 3200);
+}
+document.getElementById('ticket-overlay').addEventListener('click', ()=>{
+  document.getElementById('ticket-overlay').classList.remove('show');
+});
+
+/* Manual check-in */
+document.getElementById('manual-search').addEventListener('input', e=>renderManualList(e.target.value));
+function renderManualList(query){
+  const list = document.getElementById('manual-list');
+  const q = query.trim().toLowerCase();
+  const matches = q.length===0 ? [] : STUDENTS.filter(s=>s.name.toLowerCase().includes(q)).slice(0,8);
+  list.innerHTML='';
+  matches.forEach(s=>{
+    const row=document.createElement('div');
+    row.className='manual-row';
+    row.innerHTML = `<span>${s.name} <span class="mono" style="color:var(--ink-faint); font-size:11px;">· ${SECTIONS[s.section].label}</span></span>`;
+    const btn=document.createElement('button');
+    btn.className='btn btn-ghost btn-sm'; btn.textContent='Check in';
+    btn.addEventListener('click', async ()=>{
+      await recordAttendance(s, 'manual');
+      document.getElementById('manual-search').value='';
+      renderManualList('');
+    });
+    row.appendChild(btn);
+    list.appendChild(row);
+  });
+}
+
+/* =========================================================
+   DASHBOARD
+========================================================= */
+async function renderDashboard(){
+  const now = new Date();
+  document.getElementById('dash-date').textContent = now.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric', year:'numeric'});
+
+  const pillRow = document.getElementById('dash-sessions');
+  pillRow.innerHTML='';
+  let liveSection = null;
+  Object.values(SECTIONS).forEach(sec=>{
+    const sess = sessionForDate(sec.code, now);
+    const pill=document.createElement('div');
+    if(!sess){ pill.className='session-pill'; pill.innerHTML=`<span class="lbl">${sec.label}</span> — no class today`; }
+    else{
+      const isLive = now>=sess.start && now<=sess.end;
+      if(isLive) liveSection = sec.code;
+      pill.className='session-pill'+(isLive?' live':'');
+      pill.innerHTML = `<span class="lbl">${sec.label}</span> — ${formatHM(sess.startLabel)}–${formatHM(sess.endLabel)}${isLive?' · live now':''}`;
+    }
+    pillRow.appendChild(pill);
+  });
+
+  const liveWrap = document.getElementById('dash-live-section');
+  if(!liveSection){
+    liveWrap.innerHTML = `<div class="card empty-note">No class is running right now. Check back at the next scheduled session.</div>`;
+    return;
+  }
+
+  let allScans=[];
+  try{ allScans = await getAllScans(); }catch(e){ allScans=[]; }
+  const dk = dateKey(now);
+  const todays = allScans.filter(r=>r.date===dk && r.section===liveSection);
+  const roster = STUDENTS.filter(s=>s.section===liveSection);
+  const onTime = todays.filter(r=>r.status==='On Time').length;
+  const late = todays.filter(r=>r.status==='Late').length;
+  const scannedIds = new Set(todays.map(r=>r.studentId));
+  const notYet = roster.filter(s=>!scannedIds.has(s.id));
+
+  let html = `<div class="stat-grid">
+    <div class="stat-box ontime"><div class="num">${onTime}</div><div class="lbl">On time</div></div>
+    <div class="stat-box late"><div class="num">${late}</div><div class="lbl">Late</div></div>
+    <div class="stat-box absent"><div class="num">${notYet.length}</div><div class="lbl">Not yet in</div></div>
+  </div>
+  <div class="card"><div class="section-title">${SECTIONS[liveSection].label} — live roster</div>`;
+
+  roster.forEach(s=>{
+    const rec = todays.find(r=>r.studentId===s.id);
+    let badge = '<span class="badge waiting">Waiting</span>';
+    if(rec) badge = rec.status==='On Time' ? '<span class="badge ontime">On time</span>' : '<span class="badge late">Late</span>';
+    html += `<div class="roster-live-row"><span>${s.name}</span>${badge}</div>`;
+  });
+  html += `</div>`;
+  liveWrap.innerHTML = html;
+}
+function formatHM(hhmm){
+  const [h,m]=hhmm.split(':').map(Number);
+  const d=new Date(); d.setHours(h,m,0,0);
+  return timeLabelShort(d);
+}
+
+/* =========================================================
+   ROSTER / QR
+========================================================= */
+let rosterSection='CSS';
+document.querySelectorAll('#roster-seg .seg-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#roster-seg .seg-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    rosterSection = btn.dataset.sec;
+    renderRoster();
+  });
+});
+document.getElementById('btn-print-roster').addEventListener('click', ()=>window.print());
+
+function renderRoster(){
+  const grid = document.getElementById('qr-grid');
+  grid.innerHTML='';
+  const list = STUDENTS.filter(s=>s.section===rosterSection);
+  list.forEach(s=>{
+    const card=document.createElement('div');
+    card.className='qr-card';
+    const qrBox=document.createElement('div');
+    qrBox.className='qrbox';
+    card.appendChild(qrBox);
+    const nameEl=document.createElement('div');
+    nameEl.className='sname'; nameEl.textContent=s.name;
+    const idEl=document.createElement('div');
+    idEl.className='sid mono'; idEl.textContent=s.id;
+    card.appendChild(nameEl); card.appendChild(idEl);
+    grid.appendChild(card);
+    if(window.QRCode){
+      new QRCode(qrBox, { text:s.qrPayload, width:110, height:110, correctLevel:QRCode.CorrectLevel.M });
+    } else {
+      qrBox.textContent = s.qrPayload;
+    }
+  });
+}
+
+/* =========================================================
+   LOG + EXPORT
+========================================================= */
+const logDateInput = document.getElementById('log-date');
+const logSectionSelect = document.getElementById('log-section');
+logDateInput.value = dateKey(new Date());
+logDateInput.addEventListener('change', renderLog);
+logSectionSelect.addEventListener('change', renderLog);
+
+async function buildLogRows(dateStr, sectionFilter){
+  let allScans=[];
+  try{ allScans = await getAllScans(); }catch(e){ allScans=[]; }
+  const dObj = new Date(dateStr+'T00:00:00');
+  const sectionsToCheck = sectionFilter==='ALL' ? Object.keys(SECTIONS) : [sectionFilter];
+  let rows=[];
+  let anySessionThatDay=false;
+
+  sectionsToCheck.forEach(secCode=>{
+    const sess = sessionForDate(secCode, dObj);
+    if(!sess) return;
+    anySessionThatDay=true;
+    const roster = STUDENTS.filter(s=>s.section===secCode);
+    const dayScans = allScans.filter(r=>r.date===dateStr && r.section===secCode);
+    const scannedIds = new Set(dayScans.map(r=>r.studentId));
+    roster.forEach(s=>{
+      const rec = dayScans.find(r=>r.studentId===s.id);
+      if(rec){
+        rows.push({ rid:rec.rid, name:s.name, section:secCode, time:rec.timeLabel, status:rec.status, subject:SECTIONS[secCode].subject, dayLabel:rec.dayLabel, scheduledStart:rec.scheduledStart });
+      } else {
+        rows.push({ rid:null, name:s.name, section:secCode, time:'—', status:'Absent', subject:SECTIONS[secCode].subject, dayLabel:DAY_NAMES[dObj.getDay()], scheduledStart:sess.startLabel });
+      }
+    });
+  });
+  rows.sort((a,b)=> a.section.localeCompare(b.section) || a.name.localeCompare(b.name));
+  return {rows, anySessionThatDay};
+}
+
+async function renderLog(){
+  const dateStr = logDateInput.value || dateKey(new Date());
+  const sectionFilter = logSectionSelect.value;
+  const {rows, anySessionThatDay} = await buildLogRows(dateStr, sectionFilter);
+
+  const statsEl = document.getElementById('log-stats');
+  const onTime = rows.filter(r=>r.status==='On Time').length;
+  const late = rows.filter(r=>r.status==='Late').length;
+  const absent = rows.filter(r=>r.status==='Absent').length;
+  statsEl.innerHTML = `
+    <div class="stat-box ontime"><div class="num">${onTime}</div><div class="lbl">On time</div></div>
+    <div class="stat-box late"><div class="num">${late}</div><div class="lbl">Late</div></div>
+    <div class="stat-box absent"><div class="num">${absent}</div><div class="lbl">Absent</div></div>`;
+
+  const tbody = document.getElementById('log-tbody');
+  const emptyNote = document.getElementById('log-empty');
+  tbody.innerHTML='';
+  if(!anySessionThatDay){
+    emptyNote.style.display='block';
+    return;
+  }
+  emptyNote.style.display='none';
+  rows.forEach(r=>{
+    const tr=document.createElement('tr');
+    const badgeClass = r.status==='On Time'?'ontime':(r.status==='Late'?'late':'absent');
+    tr.innerHTML = `<td>${r.name}</td><td>${r.section}</td><td class="time mono">${r.time}</td><td><span class="badge ${badgeClass}">${r.status}</span></td><td>${r.rid?'<button class="del-btn" title="Delete this scan">✕</button>':''}</td>`;
+    if(r.rid){
+      tr.querySelector('.del-btn').addEventListener('click', async ()=>{
+        if(confirm(`Remove ${r.name}'s scan for ${dateStr}?`)){
+          await deleteScan(r.rid);
+          renderLog();
+        }
+      });
+    }
+    tbody.appendChild(tr);
+  });
+}
+
+document.getElementById('btn-export-filtered').addEventListener('click', async ()=>{
+  const dateStr = logDateInput.value || dateKey(new Date());
+  const sectionFilter = logSectionSelect.value;
+  const {rows} = await buildLogRows(dateStr, sectionFilter);
+  exportRows(rows, `attendance_${dateStr}_${sectionFilter}`);
+});
+
+document.getElementById('btn-export-all').addEventListener('click', async ()=>{
+  let allScans=[];
+  try{ allScans = await getAllScans(); }catch(e){ allScans=[]; }
+  const rows = allScans
+    .sort((a,b)=> a.date.localeCompare(b.date) || a.section.localeCompare(b.section) || a.name.localeCompare(b.name))
+    .map(r=>({ name:r.name, section:r.section, time:r.timeLabel, status:r.status, subject:SECTIONS[r.section].subject, dayLabel:r.dayLabel, scheduledStart:r.scheduledStart, date:r.date }));
+  exportRows(rows, `attendance_full_record`, true);
+});
+
+function exportRows(rows, filenameBase, includeDate){
+  if(!window.XLSX){ alert('Export library did not load — check your internet connection once, then try again (only needed the first time to fetch it).'); return; }
+  const header = includeDate
+    ? ['Date','Day','Name','Section','Subject','Scheduled Start','Time Scanned','Status']
+    : ['Name','Section','Subject','Scheduled Start','Time Scanned','Status'];
+  const data = [header];
+  rows.forEach(r=>{
+    data.push(includeDate
+      ? [r.date, r.dayLabel, r.name, r.section, r.subject, r.scheduledStart, r.time, r.status]
+      : [r.name, r.section, r.subject, r.scheduledStart, r.time, r.status]);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = header.map(()=>({wch:18}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
+  XLSX.writeFile(wb, `${filenameBase}.xlsx`);
+}
+
+/* =========================================================
+   INIT
+========================================================= */
+renderManualList('');
+renderRoster();
+</script>
 </body>
 </html>
