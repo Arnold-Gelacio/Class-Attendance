@@ -447,6 +447,7 @@ const firebaseConfig = {
   measurementId: "G-D52F56KPQL"
 };
 
+
 const CONFIG_IS_PLACEHOLDER = firebaseConfig.apiKey.startsWith('PASTE_');
 const STORE = 'scans';
 let db = null;
@@ -566,9 +567,26 @@ const SCAN_COOLDOWN_MS=2500;
 document.getElementById('btn-start-scan').addEventListener('click', startScanner);
 document.getElementById('btn-stop-scan').addEventListener('click', stopScanner);
 
+async function waitForJsQR(timeoutMs){
+  const start = Date.now();
+  while(!window.jsQR){
+    if(window.__jsQRLoadFailed) return false;
+    if(Date.now()-start > timeoutMs) return false;
+    await new Promise(r=>setTimeout(r,150));
+  }
+  return true;
+}
+
 async function startScanner(){
-  if(window.__jsQRLoadFailed){
-    alert('The QR scanning library failed to load from every source tried — this device likely has an ad-blocker or content filter blocking it. Try disabling shields/ad-block for this site, or switch networks, then reload.');
+  const btn = document.getElementById('btn-start-scan');
+  const originalLabel = btn.innerHTML;
+  btn.innerHTML = 'Preparing scanner…';
+  btn.disabled = true;
+  const ready = await waitForJsQR(8000);
+  btn.disabled = false;
+  btn.innerHTML = originalLabel;
+  if(!ready){
+    alert('The QR scanning engine could not be loaded (tried multiple sources). This usually means an ad-blocker or content filter is blocking script downloads on this device. Try disabling shields/ad-block for this site, switch networks, or use "Mark manually" below for now.');
     return;
   }
   const constraints = { video: { facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080} } };
@@ -647,11 +665,19 @@ function beep(kind){
 async function handleDecodedPayload(payload){
   const now = Date.now();
   if(payload===lastScanKey && (now-lastScanAt)<SCAN_COOLDOWN_MS) return;
-  if(!payload.startsWith('PLSD-ATT:')) return;
+  lastScanKey=payload; lastScanAt=now;
+  if(!payload.startsWith('PLSD-ATT:')){
+    showTicket({error:true, name:'Unrecognized code', meta:`Scanned something, but it isn't one of this app's QR cards (got: "${payload.slice(0,40)}").`, time:timeLabel(new Date())});
+    beep('error');
+    return;
+  }
   const id = payload.replace('PLSD-ATT:','');
   const student = STUDENTS_BY_ID[id];
-  if(!student) return;
-  lastScanKey=payload; lastScanAt=now;
+  if(!student){
+    showTicket({error:true, name:'Unknown student ID', meta:`QR code decoded fine, but no student matches ID "${id}". Try re-printing this card.`, time:timeLabel(new Date())});
+    beep('error');
+    return;
+  }
   await recordAttendance(student, 'qr');
 }
 
