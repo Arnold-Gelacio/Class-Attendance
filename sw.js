@@ -11,6 +11,7 @@ const PRECACHE_URLS = [
   './icon-192.png',
   './icon-512.png',
   'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js',
+  'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js',
   'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
@@ -42,6 +43,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return; // never intercept Firestore writes etc.
+  if (!req.url.startsWith('http')) return; // skip chrome-extension:// and similar — not cacheable, not ours
 
   event.respondWith(
     caches.match(req).then((cached) => {
