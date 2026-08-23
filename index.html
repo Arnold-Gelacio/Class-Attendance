@@ -9,9 +9,6 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <script>
-  // jsQR loader with automatic fallback: some ad-blockers/extensions block
-  // cdnjs.cloudflare.com specifically. If that happens, try an independent
-  // CDN (jsDelivr) automatically before giving up.
   (function loadJsQR(sources, i){
     if(i>=sources.length){
       window.__jsQRLoadFailed = true;
@@ -20,7 +17,7 @@
     }
     var s = document.createElement('script');
     s.src = sources[i];
-    s.onload = function(){ /* window.jsQR is now defined */ };
+    s.onload = function(){
     s.onerror = function(){ loadJsQR(sources, i+1); };
     document.head.appendChild(s);
   })([
@@ -35,8 +32,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script>
-  // Initialized here, at the very top, so the access-gate script (which runs
-  // before the rest of the app) can already use firebase.auth().
+
   const firebaseConfig = {
     apiKey: "AIzaSyBiakznLg68-yoDtwZ16S5elin2kcjSvQ8",
     authDomain: "classattendance-9bb49.firebaseapp.com",
@@ -84,7 +80,7 @@
   button{font-family:inherit; cursor:pointer;}
   input,select{font-family:inherit;}
 
-  /* ===== Header ===== */
+  /* Header*/
   .app-header{
     background:var(--navy-deep);
     color:#F3F4F0;
@@ -318,11 +314,8 @@
 </div>
 <script>
 (function(){
-  // The access code IS the password for one shared Firebase Auth account.
-  // Unlike the old version, no hash of the code lives in this file at all —
-  // Firebase's servers are the only place the code is ever checked, so there's
-  // nothing here for someone reading the page source to crack offline.
-  const SHARED_EMAIL = 'class12ict@plsd-attendance.local'; // fixed ID, not a real inbox
+  
+  const SHARED_EMAIL = 'class12ict@plsd-attendance.local'; 
 
   const gate = document.getElementById('access-gate');
   const input = document.getElementById('gate-input');
@@ -342,7 +335,6 @@
     try{
       await firebase.auth().signInWithEmailAndPassword(SHARED_EMAIL, val);
       errorEl.style.display = 'none';
-      // onAuthStateChanged (above) fires next and calls unlock().
     }catch(e){
       errorEl.style.display = 'block';
       errorEl.textContent = (e && e.code==='auth/network-request-failed')
@@ -684,9 +676,7 @@ async function startScanner(){
     try{ videoStream = await navigator.mediaDevices.getUserMedia({video:true}); }
     catch(e2){ alert('Camera access was blocked or unavailable. If you opened this file directly from disk, some browsers require HTTPS or localhost for the camera — try hosting it (e.g. GitHub Pages) instead.'); return; }
   }
-  // Best-effort: keep the camera continuously refocusing instead of locking
-  // focus far away, which is the usual reason a live feed never detects a
-  // QR code held close to the lens. Not all phones support this — ignored if not.
+  
   try{
     const track = videoStream.getVideoTracks()[0];
     const caps = track.getCapabilities ? track.getCapabilities() : {};
@@ -719,7 +709,7 @@ function stopScanner(){
   document.getElementById('btn-stop-scan').style.display='none';
 }
 
-const SCAN_MAX_DIM = 900; // downscale big camera frames so decoding stays fast & responsive
+const SCAN_MAX_DIM = 900; 
 function scanFrame(){
   if(!scanningActive) return;
   const video=document.getElementById('scanner-video');
@@ -803,9 +793,7 @@ async function recordAttendance(student, source){
       showTicket({error:true, name:student.name, meta:'Already checked in today.', time:timeLabel(nowDate)});
       beep('error');
     } else {
-      // Saved locally regardless — Firestore's offline cache queues it and will
-      // sync once the database is reachable. This branch only fires for truly
-      // local failures (e.g. Firestore database not yet created in console).
+     
       showTicket({error:true, name:student.name, meta:'Saved on device — will sync once the database is set up.', time:timeLabel(nowDate)});
       beep('error');
       console.warn('Save issue (check that a Firestore database exists for this Firebase project):', e);
@@ -1173,11 +1161,7 @@ function exportRows(rows, filenameBase, includeDate){
 renderManualList('');
 renderRoster();
 
-/*
-   OFFLINE SUPPORT (service worker)
-   Caches this app + its libraries after the first successful online visit,
-   so it keeps working with zero internet from then on.
-*/
+
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
     navigator.serviceWorker.register('sw.js').catch(err=>console.warn('Service worker registration failed:', err));
