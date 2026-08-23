@@ -32,7 +32,23 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script>
+  // Initialized here, at the very top, so the access-gate script (which runs
+  // before the rest of the app) can already use firebase.auth().
+  const firebaseConfig = {
+    apiKey: "AIzaSyBiakznLg68-yoDtwZ16S5elin2kcjSvQ8",
+    authDomain: "classattendance-9bb49.firebaseapp.com",
+    projectId: "classattendance-9bb49",
+    storageBucket: "classattendance-9bb49.firebasestorage.app",
+    messagingSenderId: "258408649487",
+    appId: "1:258408649487:web:0486792613b9f2b511247a",
+    measurementId: "G-D52F56KPQL"
+  };
+  const CONFIG_IS_PLACEHOLDER = firebaseConfig.apiKey.startsWith('PASTE_');
+  if(!CONFIG_IS_PLACEHOLDER){ firebase.initializeApp(firebaseConfig); }
+</script>
 <style>
   :root{
     --bg:#F3F4F0;
@@ -250,9 +266,99 @@
     .qr-grid{grid-template-columns:repeat(3,1fr);}
     .qr-card{break-inside:avoid; border:1px dashed #999;}
   }
+
+  #access-gate{
+    position:fixed; inset:0; z-index:9999;
+    background:var(--navy-deep);
+    display:flex; align-items:center; justify-content:center;
+    padding:24px;
+  }
+  #access-gate .gate-card{
+    width:100%; max-width:340px;
+    background:#16213E; border:1px solid rgba(255,255,255,0.12); border-radius:16px;
+    padding:28px 24px; text-align:center;
+  }
+  #access-gate .gate-eyebrow{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-bottom:6px;}
+  #access-gate h2{font-size:20px; margin-bottom:6px; color:#fff;}
+  #access-gate .gate-sub{font-size:13px; color:rgba(255,255,255,0.65); margin-bottom:20px; line-height:1.5;}
+  #access-gate input{
+    width:100%; text-align:center; letter-spacing:.3em; font-size:20px;
+    padding:14px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.18);
+    background:rgba(255,255,255,0.06); color:#fff; margin-bottom:12px;
+  }
+  #access-gate input::placeholder{color:rgba(255,255,255,0.3);}
+  #access-gate input:focus{outline:none; border-color:var(--accent);}
+  #access-gate button{
+    width:100%; padding:13px; border-radius:10px; border:none;
+    background:var(--accent); color:#1a1400; font-weight:700; font-size:14.5px; cursor:pointer;
+  }
+  #access-gate button:disabled{opacity:.6; cursor:default;}
+  #access-gate .gate-error{
+    color:#ff8c8c; font-size:12.5px; margin-top:12px; min-height:16px; display:none;
+  }
+  #access-gate.shake .gate-card{animation:gateShake .3s;}
+  @keyframes gateShake{
+    0%,100%{transform:translateX(0);}
+    25%{transform:translateX(-8px);}
+    75%{transform:translateX(8px);}
+  }
 </style>
 </head>
 <body>
+
+<div id="access-gate">
+  <div class="gate-card">
+    <div class="gate-eyebrow">Grade 12 ICT</div>
+    <h2>Enter Access Code</h2>
+    <div class="gate-sub">Ask your teacher for the code to open this attendance app.</div>
+    <input type="password" id="gate-input" placeholder="••••" autocomplete="off">
+    <button id="gate-submit">Unlock</button>
+    <div class="gate-error" id="gate-error">Incorrect code — try again.</div>
+  </div>
+</div>
+<script>
+(function(){
+  // The access code IS the password for one shared Firebase Auth account.
+  // Unlike the old version, no hash of the code lives in this file at all —
+  // Firebase's servers are the only place the code is ever checked, so there's
+  // nothing here for someone reading the page source to crack offline.
+  const SHARED_EMAIL = 'class12ict@plsd-attendance.local'; // fixed ID, not a real inbox
+
+  const gate = document.getElementById('access-gate');
+  const input = document.getElementById('gate-input');
+  const submitBtn = document.getElementById('gate-submit');
+  const errorEl = document.getElementById('gate-error');
+
+  function unlock(){ gate.style.display = 'none'; }
+
+  if(!CONFIG_IS_PLACEHOLDER){
+    firebase.auth().onAuthStateChanged(user => { if(user) unlock(); });
+  }
+
+  async function trySubmit(){
+    const val = input.value.trim();
+    if(!val) return;
+    submitBtn.disabled = true; submitBtn.textContent = 'Checking…';
+    try{
+      await firebase.auth().signInWithEmailAndPassword(SHARED_EMAIL, val);
+      errorEl.style.display = 'none';
+      // onAuthStateChanged (above) fires next and calls unlock().
+    }catch(e){
+      errorEl.style.display = 'block';
+      errorEl.textContent = (e && e.code==='auth/network-request-failed')
+        ? 'No internet — connect once to verify the code, then it\'ll keep working offline.'
+        : 'Incorrect code — try again.';
+      gate.classList.remove('shake'); void gate.offsetWidth; gate.classList.add('shake');
+      input.value = '';
+      input.focus();
+    }
+    submitBtn.disabled = false; submitBtn.textContent = 'Unlock';
+  }
+
+  submitBtn.addEventListener('click', trySubmit);
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter') trySubmit(); });
+})();
+</script>
 
 <header class="app-header">
   <div class="eyebrow"><span class="dot"></span>By - Arnold Gelacio</div>
@@ -437,18 +543,6 @@ const STUDENTS_BY_ID = Object.fromEntries(STUDENTS.map(s=>[s.id,s]));
 
 
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBiakznLg68-yoDtwZ16S5elin2kcjSvQ8",
-  authDomain: "classattendance-9bb49.firebaseapp.com",
-  projectId: "classattendance-9bb49",
-  storageBucket: "classattendance-9bb49.firebasestorage.app",
-  messagingSenderId: "258408649487",
-  appId: "1:258408649487:web:0486792613b9f2b511247a",
-  measurementId: "G-D52F56KPQL"
-};
-
-
-const CONFIG_IS_PLACEHOLDER = firebaseConfig.apiKey.startsWith('PASTE_');
 const STORE = 'scans';
 let db = null;
 let dbAvailable = false;
@@ -458,11 +552,10 @@ function initFirestore(){
     setSyncPill('error', 'Firebase not configured');
     document.getElementById('offline-setup-banner').style.display='block';
     document.getElementById('offline-setup-banner').textContent =
-      'This copy isn\'t connected to a database yet. Paste your Firebase config near the top of the <script> block (search for "PASTE_YOUR_API_KEY_HERE") for scans to save anywhere.';
+      'This copy isn\'t connected to a database yet. Paste your Firebase config near the top of <head> (search for "PASTE_YOUR_API_KEY_HERE") for scans to save anywhere.';
     return;
   }
   try{
-    firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
     db.enablePersistence({synchronizeTabs:true}).catch(err=>{
       if(err.code==='failed-precondition'){
