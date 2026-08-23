@@ -1,7 +1,9 @@
+// Bump this when you change any cached file so clients pick up the update.
+const CACHE_NAME = 'attendance-cache-v4';
 
-const CACHE_NAME = 'attendance-cache-v3';
-
-
+// Everything the app needs to run with zero internet.
+// The CDN scripts below are fetched fresh on install (while online) and
+// cached forever after — that's what makes the app work in airplane mode.
 const PRECACHE_URLS = [
   './',
   './index.html',
@@ -41,8 +43,8 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-  if (req.method !== 'GET') return; 
-  if (!req.url.startsWith('http')) return; 
+  if (req.method !== 'GET') return; // never intercept Firestore writes etc.
+  if (!req.url.startsWith('http')) return; // skip chrome-extension:// and similar — not cacheable, not ours
 
   event.respondWith(
     caches.match(req).then((cached) => {
@@ -55,11 +57,12 @@ self.addEventListener('fetch', (event) => {
           return res;
         })
         .catch(() => {
-          
+          // Offline and not cached — for page navigations, fall back to the
+          // cached app shell instead of the browser's offline dino page.
           if (req.mode === 'navigate') return caches.match('./index.html');
           return cached;
         });
-     
+      // Serve from cache instantly if we have it, refresh cache in background.
       return cached || networkFetch;
     })
   );
