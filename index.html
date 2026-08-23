@@ -17,7 +17,7 @@
     }
     var s = document.createElement('script');
     s.src = sources[i];
-    s.onload = function(){
+    s.onload = function(){};
     s.onerror = function(){ loadJsQR(sources, i+1); };
     document.head.appendChild(s);
   })([
@@ -254,7 +254,7 @@
   .setup-banner{background:var(--late-bg); border:1px solid #ECD3AE; color:var(--accent-ink); border-radius:12px; padding:12px 14px; font-size:12.5px; line-height:1.5; margin-bottom:14px;}
 
   @media print{
-    .app-header, .tabbar, .no-print{display:none !important;}
+    .app-header, .tabbar, .no-print, #chat-fab, #chat-panel{display:none !important;}
     body{padding:0; background:#fff;}
     .view{display:block !important; max-width:none; padding:0;}
     #view-roster{display:block !important;}
@@ -292,6 +292,35 @@
   #access-gate .gate-error{
     color:#ff8c8c; font-size:12.5px; margin-top:12px; min-height:16px; display:none;
   }
+  /* Chat assistant */
+  #chat-fab{
+    position:fixed; right:16px; bottom:calc(84px + env(safe-area-inset-bottom));
+    z-index:80; width:54px; height:54px; border-radius:50%; border:none;
+    background:var(--navy-deep); display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 14px rgba(15,24,48,.35);
+  }
+  #chat-fab svg{width:24px;height:24px;stroke:#fff;fill:none;stroke-width:2;}
+  #chat-panel{
+    position:fixed; right:12px; left:12px; bottom:calc(84px + env(safe-area-inset-bottom));
+    z-index:85; max-width:380px; margin-left:auto;
+    background:var(--surface); border:1px solid var(--line); border-radius:16px;
+    box-shadow:0 10px 30px rgba(15,24,48,.28);
+    display:none; flex-direction:column; height:min(520px,72vh); overflow:hidden;
+  }
+  #chat-panel.open{display:flex;}
+  .chat-head{background:var(--navy-deep);color:#fff;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .chat-head .t{font-weight:700;font-size:14px;color:#fff;}
+  .chat-head .s{font-size:11px;color:#AEB6CC;margin-top:1px;}
+  #chat-close{background:none;border:none;color:#fff;font-size:17px;padding:4px 6px;line-height:1;}
+  #chat-msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--bg);}
+  .chat-msg{max-width:88%;padding:9px 12px;border-radius:12px;font-size:13.5px;line-height:1.55;overflow-wrap:anywhere;}
+  .chat-msg.bot{background:var(--surface);border:1px solid var(--line);align-self:flex-start;border-top-left-radius:4px;}
+  .chat-msg.user{background:var(--navy-deep);color:#fff;align-self:flex-end;border-top-right-radius:4px;}
+  .chat-input-row{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line);background:var(--surface);}
+  #chat-input{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;}
+  #chat-send{border:none;background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:0 14px;font-weight:700;}
+  .chat-typing i{display:inline-block;width:6px;height:6px;margin-right:3px;border-radius:50%;background:var(--ink-faint);animation:pulse 1.2s infinite;}
+
   #access-gate.shake .gate-card{animation:gateShake .3s;}
   @keyframes gateShake{
     0%,100%{transform:translateX(0);}
@@ -481,6 +510,25 @@
       <div class="stamp ontime" id="ticket-stamp">ON TIME</div>
     </div>
     <div class="close-hint">Tap anywhere to dismiss · resuming scan…</div>
+  </div>
+</div>
+
+<!-- CHAT ASSISTANT -->
+<button id="chat-fab" title="Ask about attendance" aria-label="Open attendance assistant">
+  <svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+</button>
+<div id="chat-panel" role="dialog" aria-label="Attendance assistant">
+  <div class="chat-head">
+    <div>
+      <div class="t">Attendance Assistant</div>
+      <div class="s">Absences, lateness, who's in — just ask</div>
+    </div>
+    <button id="chat-close" aria-label="Close chat">✕</button>
+  </div>
+  <div id="chat-msgs"></div>
+  <div class="chat-input-row">
+    <input type="text" id="chat-input" placeholder='e.g. "How many absences does Cruz have?"' autocomplete="off">
+    <button id="chat-send">Send</button>
   </div>
 </div>
 
@@ -1155,9 +1203,327 @@ function exportRows(rows, filenameBase, includeDate){
   XLSX.writeFile(wb, `${filenameBase}.xlsx`);
 }
 
-/* 
-   INIT
+/*
+   ATTENDANCE ASSISTANT (runs fully in the browser — no external AI service)
+   Understands natural questions about absences, lateness, who showed up,
+   schedules and roster size, using the live Firestore data.
 */
+const ChatBot = (function(){
+  const MONTH_NAMES = ['january','february','march','april','may','june','july',
+                       'august','september','october','november','december'];
+
+  const fab = document.getElementById('chat-fab');
+  const panel = document.getElementById('chat-panel');
+  const msgs = document.getElementById('chat-msgs');
+  const inp = document.getElementById('chat-input');
+
+  function toggle(open){
+    panel.classList.toggle('open', open);
+    if(panel.classList.contains('open')) setTimeout(()=>inp.focus(), 50);
+  }
+  fab.addEventListener('click', ()=>toggle());
+  document.getElementById('chat-close').addEventListener('click', ()=>toggle(false));
+
+  function esc(s){ return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  function addMsg(html, who){
+    const d=document.createElement('div');
+    d.className='chat-msg '+who;
+    d.innerHTML = html;
+    msgs.appendChild(d);
+    msgs.scrollTop = msgs.scrollHeight;
+    return d;
+  }
+  function fmtDk(dk){ return new Date(dk+'T00:00:00').toLocaleDateString('en-US',{month:'short', day:'numeric'}); }
+  function monthLabel(y,m){ return new Date(y,m,1).toLocaleDateString('en-US',{month:'long', year:'numeric'}); }
+
+  let busy=false;
+  async function submit(){
+    const q = inp.value.trim();
+    if(!q || busy) return;
+    addMsg(esc(q), 'user');
+    inp.value='';
+    busy=true;
+    const typing = addMsg('<span class="chat-typing"><i></i><i></i><i></i></span>', 'bot');
+    let ans;
+    try{ ans = await answer(q); }
+    catch(e){ console.error(e); ans='Sorry — something went wrong while reading the attendance records. Please try again.'; }
+    typing.remove();
+    addMsg(ans, 'bot');
+    busy=false;
+  }
+  document.getElementById('chat-send').addEventListener('click', submit);
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+
+  /* ---------- language helpers ---------- */
+
+  function normTokens(s){
+    return s.toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(t=>t.length>1);
+  }
+
+  // Fuzzy student lookup: score by how many name tokens appear in the question.
+  function findStudentMatch(q){
+    const qt = new Set(normTokens(q));
+    const scored = STUDENTS.map(s=>{
+      let sc=0; normTokens(s.name).forEach(t=>{ if(qt.has(t)) sc++; });
+      return {s, sc};
+    }).filter(x=>x.sc>0).sort((a,b)=>b.sc-a.sc);
+    if(!scored.length) return {none:true};
+    const top = scored[0].sc;
+    const ties = scored.filter(x=>x.sc===top);
+    if(ties.length>1) return {ambiguous: ties.map(x=>x.s)};
+    return {student: ties[0].s};
+  }
+
+  function parseMonth(q){
+    const l=q.toLowerCase();
+    if(/\b(this|current)\s+month\b/.test(l)) return {y:new Date().getFullYear(), m:new Date().getMonth()};
+    if(/\b(last|previous)\s+month\b/.test(l)){ const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-1); return {y:d.getFullYear(), m:d.getMonth()}; }
+    for(let i=0;i<12;i++){
+      if(new RegExp('\\b'+MONTH_NAMES[i]+'\\b').test(l)){
+        const ym = l.match(/\b(20\d\d)\b/);
+        return {y: ym?Number(ym[1]):new Date().getFullYear(), m:i};
+      }
+    }
+    return null;
+  }
+
+  function parseDate(q){
+    const l=q.toLowerCase();
+    if(/\btoday\b/.test(l)) return dateKey(new Date());
+    if(/\byesterday\b/.test(l)){ const d=new Date(); d.setDate(d.getDate()-1); return dateKey(d); }
+    const iso = l.match(/\b(20\d\d)-(\d{1,2})-(\d{1,2})\b/);
+    if(iso) return `${iso[1]}-${pad2(Number(iso[2]))}-${pad2(Number(iso[3]))}`;
+    for(let i=0;i<12;i++){
+      const m = l.match(new RegExp(MONTH_NAMES[i]+'\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b'));
+      if(m){ const y=new Date().getFullYear(); return `${y}-${pad2(i+1)}-${pad2(Number(m[1]))}`; }
+      const m2 = l.match(new RegExp('(\\d{1,2})(?:st|nd|rd|th)?\\s+'+MONTH_NAMES[i]));
+      if(m2){ const y=new Date().getFullYear(); return `${y}-${pad2(i+1)}-${pad2(Number(m2[1]))}`; }
+    }
+    return null;
+  }
+
+  function detectSection(q){
+    const l=q.toLowerCase();
+    if(/\bcss\b|181|computer systems servicing/.test(l)) return 'CSS';
+    if(/\bprog\b|182|programming\b/.test(l)) return 'PROG';
+    return null;
+  }
+
+  const HELP =
+    `Here's what I can answer:<br>
+     • <b>Absences:</b> "How many absences does Cruz have this month?" · "...in July?" · "...overall?"<br>
+     • <b>Lates:</b> "How many times was Mendoza late this month?"<br>
+     • <b>Present / today:</b> "Is Kessie present today?" · "When did Samuel check in today?"<br>
+     • <b>Full summary:</b> "Attendance summary for Deloyas"<br>
+     • <b>Whole class:</b> "Who was absent yesterday?" · "How many absent today in CSS?"<br>
+     • <b>Schedule:</b> "When is the Programming class?"<br>
+     • <b>Roster:</b> "How many students are there?"`;
+
+  function greet(){
+    return `Hi! I'm your attendance assistant 👋 Ask me things like:<br>
+      • How many absences does Cruz have this month?<br>
+      • Who was absent yesterday?<br>
+      • Is Valbuena present today?<br>
+      Type <b>help</b> to see everything I can do.`;
+  }
+
+  function dbWarning(){ return dbAvailable ? '' : '<br><br>⚠️ The database isn\'t connected right now, so I can only see what\'s on this device.'; }
+
+  /* ---------- data crunching ---------- */
+
+  // Attendance for one student across a calendar month (only sessions already held count).
+  async function studentMonthStats(student, y, m){
+    const cols = monthDateColumns(student.section, y, m);
+    const all = await getAllScans();
+    const today0 = new Date(); today0.setHours(0,0,0,0);
+    let present=0, late=0, absent=0; const absentDates=[], lateDates=[];
+    let lastCheckIn=null;
+    cols.forEach(col=>{
+      if(col.date > today0) return;
+      const rec = all.find(r=>r.studentId===student.id && r.date===col.dk);
+      if(rec){
+        if(rec.status==='On Time') present++; else { late++; lateDates.push(col.dk); }
+        lastCheckIn = rec;
+      } else { absent++; absentDates.push(col.dk); }
+    });
+    return {present, late, absent, absentDates, lateDates, lastCheckIn};
+  }
+
+  // Same idea but from the student's first record up to now.
+  async function studentOverallStats(student){
+    const all = await getAllScans();
+    const mine = all.filter(r=>r.studentId===student.id && r.date)
+                    .sort((a,b)=>a.date.localeCompare(b.date));
+    if(!mine.length) return null;
+    const first = new Date(mine[0].date+'T00:00:00');
+    let present=0, late=0, absent=0; const absentDates=[];
+    const end = new Date(); const today0=new Date(); today0.setHours(0,0,0,0);
+    let cy=first.getFullYear(), cm=first.getMonth();
+    while(cy<end.getFullYear() || (cy===end.getFullYear() && cm<=end.getMonth())){
+      monthDateColumns(student.section, cy, cm).forEach(col=>{
+        if(col.date>today0) return;
+        const rec = all.find(r=>r.studentId===student.id && r.date===col.dk);
+        if(rec){ rec.status==='On Time' ? present++ : late++; }
+        else { absent++; absentDates.push(col.dk); }
+      });
+      cm++; if(cm>11){cm=0;cy++;}
+    }
+    return {present, late, absent, absentDates};
+  }
+
+  async function sectionMonthStats(secCode, y, m){
+    const cols = monthDateColumns(secCode, y, m);
+    const all = await getAllScans();
+    const scans = all.filter(r=>r.section===secCode);
+    const roster = STUDENTS.filter(s=>s.section===secCode);
+    const today0 = new Date(); today0.setHours(0,0,0,0);
+    let present=0, late=0, absent=0, heldSessions=0;
+    cols.forEach(col=>{
+      if(col.date > today0) return;
+      heldSessions++;
+      roster.forEach(s=>{
+        const rec = scans.find(r=>r.studentId===s.id && r.date===col.dk);
+        if(rec){ rec.status==='On Time' ? present++ : late++; } else absent++;
+      });
+    });
+    return {present, late, absent, heldSessions, rosterSize:roster.length};
+  }
+
+  async function whoForDate(dk, secCode, statusWanted){
+    const {rows, anySessionThatDay} = await buildLogRows(dk, secCode || 'ALL');
+    if(!anySessionThatDay) return {nosession:true};
+    const list = rows.filter(r=> statusWanted ? r.status===statusWanted : true);
+    return {rows:list};
+  }
+
+  function nameList(names, cap){
+    if(!names.length) return '';
+    return '<br>'+cap+': <b>'+names.slice(0,12).map(esc).join(', ')+'</b>'+(names.length>12?` … and ${names.length-12} more`:'');
+  }
+
+  /* ---------- intent routing ---------- */
+
+  async function answer(raw){
+    const q = raw.trim();
+    const l = q.toLowerCase();
+
+    if(/^(hi|hii+|hello|hey|yo|good\s*(morning|afternoon|evening)|kamusta)\b/.test(l)) return greet();
+    if(/\bhelp\b|\bwhat can you do\b|\bcapabilit/.test(l)) return HELP;
+
+    // Schedule questions ("when is class", "schedule", "what time")
+    if(/\bschedule?\b|\bsched\b|\bwhen\b.*\bclass\b|\bclass\b.*\b(when|what time)\b|\bwhat time\b.*\bclass\b/.test(l) && !findStudentMatch(q).student){
+      return scheduleAnswer(detectSection(l));
+    }
+    if(/\bhow many students\b|\broster size\b/.test(l)) return rosterAnswer(detectSection(l));
+
+    // "Who ..." questions about a whole day/class
+    if(/^who\b/.test(l)){
+      const wantsLate=/\blate\b/.test(l), wantsPresent=/\bpresent\b|\bon time\b|\bcame\b|\bchecked in\b|\bshowed up\b|\bin class\b/.test(l);
+      const wantsAbsent=/\babse|\bmissing\b|\bnot (come|show|in)\b|\bskipped\b|\bcut\b/.test(l);
+      const dk = parseDate(l) || dateKey(new Date());
+      const sec = detectSection(l);
+      const res = await whoForDate(dk, sec, wantsAbsent?'Absent':(wantsLate?'Late':(wantsPresent?'On Time':null)));
+      if(res.nosession) return `No ${sec?SECTIONS[sec].label+' ':''}class was scheduled on ${fmtDk(dk)}, so nobody is marked absent.`;
+      if(wantsAbsent||wantsLate||wantsPresent){
+        const names=res.rows.map(r=>r.name.split(',')[0]);
+        if(!names.length) return `Nobody was marked ${wantsAbsent?'absent':(wantsLate?'late':'on time')} on ${fmtDk(dk)}${sec?' for '+SECTIONS[sec].label:''}.`;
+        return `<b>${names.length}</b> ${wantsAbsent?'absent':(wantsLate?'late':'on time')} on ${fmtDk(dk)}:${nameList(names,'')}`;
+      }
+      const absentNames=res.rows.filter(r=>r.status==='Absent').map(r=>r.name.split(',')[0]);
+      const presentCount=res.rows.filter(r=>r.status!=='Absent').length;
+      return `On ${fmtDk(dk)}${sec?' ('+SECTIONS[sec].label+')':''}: <b>${presentCount}</b> checked in, <b>${absentNames.length}</b> absent.${nameList(absentNames,'Absences')}`;
+    }
+
+    // Student-specific questions
+    const match = findStudentMatch(q);
+    if(match.ambiguous){
+      const opts = match.list.map(s=>`${esc(s.name)} (${SECTIONS[s.section].label})`).join('<br>• ');
+      return `I found more than one student matching that name — which one did you mean?<br>• ${opts}<br><br>(Include a first name or the section and ask again.)`;
+    }
+    if(match.student){
+      const s = match.student;
+      const secLabel = SECTIONS[s.section].label;
+      const asksToday = /\btoday\b/.test(l);
+      const asksAbsent=/\babse|\bmiss(ed|ing)?\b|\bskip(ped)?\b|\bcut\b|\bnot (come|show)/.test(l);
+      const asksLate=/\blate\b|\btardy\b/.test(l);
+      const asksPresent=/\bpresent\b|\bon time\b|\battend(ed|ance)?\b|\bcheck(ed)? ?in\b|\bcam(e)?\b|\bshowed up\b/.test(l);
+      const overall=/\boverall\b|\ball time\b|\bever\b|\bsince the start\b|\bin total\b/.test(l);
+
+      if(asksToday){
+        const dk=dateKey(new Date());
+        const sess=sessionForDate(s.section,new Date());
+        if(!sess) return `${esc(s.name)} has no ${secLabel} class scheduled today.`;
+        const rec=(await getAllScans()).find(r=>r.studentId===s.id && r.date===dk);
+        if(rec) return `Yes — <b>${esc(s.name)}</b> checked in <b>${rec.timeLabel}</b> today (${rec.status}).`;
+        return new Date()>sess.end
+          ? `No — <b>${esc(s.name)}</b> did not check in today (${secLabel}), so they're marked <b>absent</b>.`
+          : `Not yet — <b>${esc(s.name)}</b> hasn't checked in for today's ${secLabel} session (${formatHM(sess.startLabel)}–${formatHM(sess.endLabel)}). Class is still ongoing or upcoming.`;
+      }
+
+      const pm = parseMonth(l);
+      const rangeLabel = overall ? 'since records began'
+                       : pm ? monthLabel(pm.y,pm.m)
+                       : monthLabel(new Date().getFullYear(), new Date().getMonth());
+      const stats = overall
+        ? await studentOverallStats(s)
+        : await studentMonthStats(s, pm?pm.y:new Date().getFullYear(), pm?pm.m:new Date().getMonth());
+
+      if(!stats) return `I don't have any attendance records yet for <b>${esc(s.name)}</b> (${secLabel}).`;
+      const line = `<b>${esc(s.name)}</b> (${secLabel}) — ${rangeLabel}:<br>✅ On time: <b>${stats.present}</b> &nbsp;·&nbsp; 🕐 Late: <b>${stats.late}</b> &nbsp;·&nbsp; ❌ Absent: <b>${stats.absent}</b>`;
+      if(asksAbsent){
+        if(!stats.absent) return `${line}${dbWarning()}<br><br>No absences at all — perfect attendance! 🎉`;
+        return `${line}${dbWarning()}${nameList(stats.absentDates.map(fmtDk),'Absent on')}`;
+      }
+      if(asksLate){
+        if(!stats.late) return `${line}${dbWarning()}<br><br>Never late in that period. 👍`;
+        return `${line}${dbWarning()}${nameList(stats.lateDates.map(fmtDk),'Late on')}`;
+      }
+      if(asksPresent) return `${line}${dbWarning()}<br><br>That's <b>${stats.present + stats.late}</b> of the scheduled sessions attended.`;
+      // generic summary
+      let extra='';
+      if(stats.absentDates && stats.absentDates.length) extra += nameList(stats.absentDates.map(fmtDk).slice(-6),'Recent absences');
+      return `${line}${extra}${dbWarning()}`;
+    }
+
+    // Whole-class aggregate questions
+    if(/\babse|late|present|attend/.test(l)){
+      const now=new Date();
+      const pm = parseMonth(l);
+      const y = pm?pm.y:now.getFullYear(), m = pm?pm.m:now.getMonth();
+      const secs = detectSection(l) ? [detectSection(l)] : Object.keys(SECTIONS);
+      const parts=[];
+      for(const code of secs){
+        const st = await sectionMonthStats(code,y,m);
+        parts.push(`${SECTIONS[code].label}: ✅ ${st.present} on time · 🕐 ${st.late} late · ❌ ${st.absent} absent (across ${st.heldSessions} held sessions, ${st.rosterSize} students)`);
+      }
+      return `${monthLabel(y,m)}${dbWarning()}:<br>`+parts.join('<br>');
+    }
+
+    return `Sorry, I didn't quite get that. Try one of these:<br>• "How many absences does Cruz have this month?"<br>• "Who was absent yesterday?"<br>• "When is the CSS class?"<br><br>Type <b>help</b> for the full list.`;
+  }
+
+  function scheduleAnswer(sec){
+    const codes = sec ? [sec] : Object.keys(SECTIONS);
+    return codes.map(code=>{
+      const s=SECTIONS[code];
+      const days=s.schedule.map(sc=>`${DAY_NAMES[sc.day]} ${formatHM(sc.start)}–${formatHM(sc.end)}`).join(' · ');
+      return `<b>${s.label}</b> (${s.subject}):<br>${days}`;
+    }).join('<br><br>');
+  }
+
+  function rosterAnswer(sec){
+    const codes = sec ? [sec] : Object.keys(SECTIONS);
+    return codes.map(code=>{
+      const list=STUDENTS.filter(s=>s.section===code);
+      const m=list.filter(s=>s.gender==='M').length, f=list.filter(s=>s.gender==='F').length;
+      return `<b>${SECTIONS[code].label}</b>: ${list.length} students (${m} male, ${f} female)`;
+    }).join('<br>')+(codes.length>1?`<br><br>Total: <b>${STUDENTS.length}</b> students`:'');
+  }
+
+  addMsg(greet(),'bot');
+  return {toggle};
+})();
 renderManualList('');
 renderRoster();
 
