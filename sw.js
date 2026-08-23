@@ -1,5 +1,5 @@
 // Bump this when you change any cached file so clients pick up the update.
-const CACHE_NAME = 'attendance-cache-v1';
+const CACHE_NAME = 'attendance-cache-v3';
 
 // Everything the app needs to run with zero internet.
 // The CDN scripts below are fetched fresh on install (while online) and
@@ -15,6 +15,7 @@ const PRECACHE_URLS = [
   'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js',
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js'
 ];
 
