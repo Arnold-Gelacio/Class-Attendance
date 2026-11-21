@@ -1,5 +1,5 @@
 // Bump this when you change any cached file so clients pick up the update.
-const CACHE_NAME = 'attendance-cache-v4';
+const CACHE_NAME = 'attendance-cache-v9';
 
 // Everything the app needs to run with zero internet.
 // The CDN scripts below are fetched fresh on install (while online) and
@@ -7,6 +7,7 @@ const CACHE_NAME = 'attendance-cache-v4';
 const PRECACHE_URLS = [
   './',
   './index.html',
+  './attendance-tools.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',

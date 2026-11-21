@@ -8,7 +8,7 @@
     />
     <title>Class Attendance · Grade 12 ICT Attendance</title>
     <link rel="manifest" href="manifest.json" />
-    <meta name="theme-color" content="#0F1830" />
+    <meta name="theme-color" content="#111827" />
     <link rel="icon" href="icon-192.png" />
     <link rel="apple-touch-icon" href="icon-192.png" />
     <script>
@@ -1044,10 +1044,41 @@
         display: inline-block;
         width: 6px;
         height: 6px;
-        margin-right: 3px;
         border-radius: 50%;
         background: var(--ink-faint);
+        margin-right: 3px;
         animation: pulse 1.2s infinite;
+      }
+      .chat-list {
+        margin: 7px 0 0;
+        padding-left: 22px;
+      }
+      .chat-list li {
+        padding: 2px 0;
+      }
+      .manual-time-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin: 10px 0;
+      }
+      .manual-time-row label {
+        display: grid;
+        gap: 4px;
+        color: var(--ink-faint);
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .manual-time-row input {
+        width: 100%;
+        min-width: 0;
+        min-height: 40px;
+        padding: 8px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        color: var(--ink);
+        background: var(--surface);
+        font: inherit;
       }
 
       #access-gate.shake .gate-card {
@@ -1064,6 +1095,262 @@
         75% {
           transform: translateX(8px);
         }
+      }
+
+      /* Refreshed visual layer: monochrome surfaces, blue actions, red/green status. */
+      :root {
+        --bg: #f4f5f7;
+        --surface: #ffffff;
+        --ink: #111827;
+        --ink-soft: #4b5563;
+        --ink-faint: #596273;
+        --accent: #2563eb;
+        --accent-ink: #ffffff;
+        --ontime: #15803d;
+        --ontime-bg: #dcfce7;
+        --late: #b91c1c;
+        --late-bg: #fee2e2;
+        --absent: #991b1b;
+        --absent-bg: #fef2f2;
+        --line: #dfe3e8;
+        --navy-deep: #111827;
+        --radius: 16px;
+        --shadow: 0 8px 24px rgba(17, 24, 39, 0.055), 0 1px 3px rgba(17, 24, 39, 0.045);
+      }
+      html { background: var(--bg); scroll-behavior: smooth; }
+      body {
+        color: var(--ink);
+        background: var(--bg);
+        padding-bottom: 100px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      button,
+      input,
+      select { -webkit-tap-highlight-color: transparent; }
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 3px solid rgba(37, 99, 235, 0.4);
+        outline-offset: 2px;
+      }
+      .app-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas: "eyebrow sync" "title sync" "sub sync";
+        align-items: center;
+        gap: 2px 24px;
+        padding: 18px max(20px, calc((100% - 1040px) / 2)) 17px;
+        background: var(--navy-deep);
+        box-shadow: 0 4px 18px rgba(17, 24, 39, 0.16);
+      }
+      .app-header .eyebrow { grid-area: eyebrow; margin: 0 0 3px; color: #93c5fd; }
+      .app-header .eyebrow .dot { background: #60a5fa; }
+      .app-header h1 { grid-area: title; font-size: clamp(20px, 2.2vw, 25px); letter-spacing: -0.035em; }
+      .app-header .sub { grid-area: sub; margin-top: 3px; font-size: 13px; }
+      .sync-pill { grid-area: sync; justify-self: end; margin: 0; padding: 8px 12px; border-radius: 999px; }
+      .view { max-width: 1040px; padding: 24px 22px 32px; }
+      .card {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 19px;
+        margin-bottom: 16px;
+        box-shadow: var(--shadow);
+      }
+      .section-title { color: var(--ink); font-size: 12px; letter-spacing: 0.075em; margin-bottom: 13px; }
+      .today-banner {
+        background: #111827;
+        color: #ffffff;
+        border: 1px solid #293242;
+        border-radius: 18px;
+        padding: 22px;
+        margin-bottom: 16px;
+        box-shadow: 0 10px 24px rgba(17, 24, 39, 0.16);
+      }
+      .today-banner .eyebrow,
+      .ticket .eyebrow,
+      #access-gate .gate-eyebrow { color: #93c5fd; }
+      .today-banner .big-date { font-size: 22px; letter-spacing: -0.02em; }
+      .stat-grid { gap: 12px; }
+      .stat-box {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 16px 12px;
+        box-shadow: 0 2px 8px rgba(17, 24, 39, 0.04);
+      }
+      .stat-box .num { font-size: 26px; }
+      .roster-live-row { padding: 12px 3px; }
+      .badge { padding: 5px 10px; }
+      .badge.ontime { background: var(--ontime-bg); color: var(--ontime); }
+      .badge.late { background: var(--late-bg); color: var(--late); }
+      .badge.absent { background: var(--absent-bg); color: var(--absent); }
+      .scan-stage {
+        border-radius: 20px;
+        background: #090d14;
+        box-shadow: 0 12px 28px rgba(17, 24, 39, 0.18);
+      }
+      .viewfinder span { border-color: #60a5fa; }
+      .btn {
+        min-height: 46px;
+        border-radius: 12px;
+        transition: transform 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+      }
+      .btn:hover { box-shadow: 0 5px 14px rgba(17, 24, 39, 0.12); }
+      .btn:active { transform: translateY(1px) scale(0.99); }
+      .btn-primary { background: #2563eb; color: #fff; }
+      .btn-primary:hover { background: #1d4ed8; }
+      .btn-accent { background: #2563eb; color: #fff; }
+      .btn-accent:hover { background: #1d4ed8; }
+      .btn-ghost { background: #f3f4f6; color: var(--ink); }
+      .seg-control { padding: 4px; border-radius: 12px; }
+      .seg-btn { min-height: 42px; border-radius: 9px; }
+      .seg-btn.active { box-shadow: 0 2px 7px rgba(17, 24, 39, 0.1); }
+      .qr-grid { gap: 14px; }
+      .qr-card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 15px;
+        box-shadow: 0 2px 8px rgba(17, 24, 39, 0.04);
+        transition: transform 0.16s ease, box-shadow 0.16s ease;
+      }
+      .qr-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+      .qr-card .sname { font-size: 13px; }
+      .filter-row input[type="date"],
+      .filter-row input[type="month"],
+      .filter-row select,
+      .search-box input,
+      #chat-input {
+        min-height: 44px;
+        border: 1px solid #d1d5db;
+        border-radius: 11px;
+        background: #ffffff;
+        transition: border-color 0.16s ease, box-shadow 0.16s ease;
+      }
+      .filter-row input:focus,
+      .filter-row select:focus,
+      .search-box input:focus,
+      #chat-input:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
+      }
+      .setup-banner { color: #7f1d1d; }
+      .stamp.late { color: #fca5a5; }
+      table.logtable th { padding: 10px 8px; }
+      table.logtable td { padding: 11px 8px; }
+      table.logtable tbody tr:last-child td { border-bottom: none; }
+      .tabbar {
+        padding: 7px 8px calc(7px + env(safe-area-inset-bottom));
+        box-shadow: 0 -5px 22px rgba(17, 24, 39, 0.1);
+      }
+      .tab-btn { min-height: 52px; border-radius: 12px; transition: color 0.16s ease, background-color 0.16s ease; }
+      .tab-btn.active { color: #1d4ed8; background: #eff6ff; }
+      .tab-btn.active svg { stroke: #2563eb; }
+      #chat-fab {
+        width: 56px;
+        height: 56px;
+        background: #2563eb;
+        box-shadow: 0 7px 20px rgba(17, 24, 39, 0.24);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+      }
+      #chat-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(17, 24, 39, 0.3); }
+      #chat-panel { border-radius: 18px; box-shadow: 0 18px 48px rgba(17, 24, 39, 0.22); }
+      #access-gate .gate-card {
+        max-width: 380px;
+        background: #111827;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 20px;
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+      }
+      #access-gate button {
+        background: #2563eb;
+        color: #ffffff;
+        border-radius: 11px;
+        transition: filter 0.16s ease, transform 0.16s ease;
+      }
+      #access-gate button:hover:not(:disabled) { filter: brightness(1.08); }
+
+      @media (min-width: 760px) {
+        body { padding-bottom: 96px; }
+        #view-scan.active {
+          display: grid;
+          grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+          align-items: start;
+          gap: 16px;
+        }
+        #view-scan .scan-stage {
+          grid-column: 1;
+          grid-row: 1;
+          aspect-ratio: 16 / 10;
+          max-height: 58vh;
+          margin: 0;
+        }
+        #view-scan .scan-controls { grid-column: 1; grid-row: 2; }
+        #view-scan > .card {
+          grid-column: 2;
+          grid-row: 1 / span 2;
+          height: 100%;
+          margin: 0 !important;
+        }
+        #view-scan .manual-list { max-height: min(48vh, 420px); }
+        .tabbar {
+          left: 50%;
+          right: auto;
+          bottom: 16px;
+          width: min(520px, calc(100% - 32px));
+          padding: 7px 9px;
+          border: 1px solid rgba(223, 227, 232, 0.95);
+          border-radius: 18px;
+          transform: translateX(-50%);
+          box-shadow: 0 10px 34px rgba(17, 24, 39, 0.16);
+        }
+        .tab-btn { flex-direction: row; justify-content: center; gap: 8px; padding: 9px 14px; font-size: 12px; }
+        .tab-btn svg { width: 19px; height: 19px; }
+        #chat-fab { bottom: 28px; right: max(24px, calc((100% - 1120px) / 2)); }
+        #chat-panel { bottom: 94px; right: max(24px, calc((100% - 1120px) / 2)); left: auto; }
+      }
+      @media (max-width: 560px) {
+        .app-header {
+          grid-template-columns: minmax(0, 1fr) auto;
+          grid-template-areas: "eyebrow sync" "title title" "sub sub";
+          gap: 3px 10px;
+          padding: 15px 16px 14px;
+        }
+        .app-header h1 { font-size: 19px; line-height: 1.25; }
+        .app-header .sub { max-width: 36ch; font-size: 12px; }
+        .sync-pill { padding: 6px 9px; font-size: 10.5px; }
+        .view { padding: 16px 14px 24px; }
+        .card { padding: 16px; }
+        .today-banner { padding: 18px; }
+        .stat-grid { gap: 8px; }
+        .stat-box { padding: 13px 7px; }
+        .stat-box .num { font-size: 22px; }
+        .stat-box .lbl { font-size: 9.5px; }
+        .qr-grid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
+        .tab-btn { min-height: 50px; }
+      }
+      @media (max-width: 759px) {
+        .tabbar { padding-right: 72px; }
+        #chat-fab {
+          width: 46px;
+          height: 46px;
+          right: 12px;
+          bottom: calc(10px + env(safe-area-inset-bottom));
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          scroll-behavior: auto !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+      @media print {
+        .view { max-width: none !important; padding: 0 !important; }
+        .card { box-shadow: none !important; }
+        .qr-grid { grid-template-columns: repeat(3, 1fr); }
+        .qr-card { border: 1px dashed #999; }
       }
     </style>
   </head>
@@ -1199,6 +1486,14 @@
 
       <div class="card" style="margin-top: 14px">
         <div class="section-title">Can't scan? Mark manually</div>
+        <div class="manual-time-row">
+          <label for="manual-date">Attendance date
+            <input type="date" id="manual-date" />
+          </label>
+          <label for="manual-time">Check-in time
+            <input type="time" id="manual-time" />
+          </label>
+        </div>
         <div class="search-box">
           <input
             type="text"
@@ -1373,6 +1668,7 @@
       </div>
     </div>
 
+    <script src="attendance-tools.js"></script>
     <script>
       /*Data Roster*/
       const SECTIONS = {
@@ -1381,12 +1677,12 @@
           label: "CSS · 181-A",
           subject: "Computer Systems Servicing",
           schedule: [
-            { day: 1, start: "08:00", end: "24:00" },
-            { day: 2, start: "08:00", end: "24:00" },
-            { day: 3, start: "08:00", end: "24:00" },
-            { day: 4, start: "11:00", end: "24:00" },
-            { day: 5, start: "08:00", end: "24:00" },
-            { day: 6, start: "12:00", end: "24:00" },
+            { day: 1, start: "01:00", end: "24:00" },
+            { day: 2, start: "07:00", end: "24:00" },
+            { day: 3, start: "01:00", end: "24:00" },
+            { day: 4, start: "07:00", end: "24:00" },
+            { day: 5, start: "01:00", end: "24:00" },
+            { day: 6, start: "13:00", end: "24:00" },
           ],
         },
         PROG: {
@@ -1394,12 +1690,12 @@
           label: "Programming · 182-A",
           subject: "Programming",
           schedule: [
-            { day: 1, start: "08:00", end: "24:00" },
-            { day: 2, start: "12:00", end: "24:00" },
-            { day: 3, start: "08:00", end: "24:00" },
-            { day: 4, start: "11:00", end: "24:00" },
-            { day: 5, start: "08:00", end: "24:00" },
-            { day: 6, start: "12:00", end: "24:00" },
+            { day: 1, start: "01:00", end: "24:00" },
+            { day: 2, start: "11:00", end: "24:00" },
+            { day: 3, start: "01:00", end: "24:00" },
+            { day: 4, start: "07:00", end: "24:00" },
+            { day: 5, start: "01:00", end: "24:00" },
+            { day: 6, start: "13:00", end: "24:00" },
           ],
         },
       };
@@ -1850,14 +2146,27 @@
         await recordAttendance(student, "qr");
       }
 
-      async function recordAttendance(student, source) {
-        const nowDate = new Date();
-        const evalResult = evaluateScan(student.section, nowDate);
+      async function recordAttendance(student, source, attendanceDate = new Date()) {
+        const nowDate = attendanceDate;
+        const manualEval =
+          source === "manual-backfill"
+            ? AttendanceTools.evaluateManualAttendance(
+                student.section,
+                nowDate,
+                SECTIONS,
+                GRACE_MINUTES,
+              )
+            : null;
+        const evalResult = manualEval || evaluateScan(student.section, nowDate);
         if (!evalResult.ok) {
           const msg =
-            evalResult.reason === "ended"
-              ? `Class already ended for ${SECTIONS[student.section].label} today.`
-              : `No ${SECTIONS[student.section].label} class scheduled right now.`;
+            source === "manual-backfill"
+              ? evalResult.reason === "nosession"
+                ? `No ${SECTIONS[student.section].label} class was scheduled on ${dateKey(nowDate)}.`
+                : `Choose a check-in time during the scheduled ${SECTIONS[student.section].label} class.`
+              : evalResult.reason === "ended"
+                ? `Class already ended for ${SECTIONS[student.section].label} today.`
+                : `No ${SECTIONS[student.section].label} class scheduled right now.`;
           showTicket({
             error: true,
             name: student.name,
@@ -1865,7 +2174,7 @@
             time: timeLabel(nowDate),
           });
           beep("error");
-          return;
+          return false;
         }
         const dk = dateKey(nowDate);
         const record = {
@@ -1891,15 +2200,17 @@
             status: evalResult.status,
           });
           beep(evalResult.status === "On Time" ? "ok" : "late");
+          return true;
         } catch (e) {
           if (e && e.code === "duplicate") {
             showTicket({
               error: true,
               name: student.name,
-              meta: "Already checked in today.",
+              meta: `Already checked in on ${dk}.`,
               time: timeLabel(nowDate),
             });
             beep("error");
+            return false;
           } else {
             showTicket({
               error: true,
@@ -1912,6 +2223,7 @@
               "Save issue (check that a Firestore database exists for this Firebase project):",
               e,
             );
+            return false;
           }
         }
       }
@@ -1949,6 +2261,12 @@
         });
 
       /* Manual check-in */
+      const manualDateInput = document.getElementById("manual-date");
+      const manualTimeInput = document.getElementById("manual-time");
+      const manualNow = new Date();
+      manualDateInput.value = dateKey(manualNow);
+      manualTimeInput.value = `${pad2(manualNow.getHours())}:${pad2(manualNow.getMinutes())}`;
+
       document
         .getElementById("manual-search")
         .addEventListener("input", (e) => renderManualList(e.target.value));
@@ -1971,9 +2289,23 @@
           btn.className = "btn btn-ghost btn-sm";
           btn.textContent = "Check in";
           btn.addEventListener("click", async () => {
-            await recordAttendance(s, "manual");
-            document.getElementById("manual-search").value = "";
-            renderManualList("");
+            const dateValue = manualDateInput.value;
+            const timeValue = manualTimeInput.value;
+            const selectedDate = new Date(`${dateValue}T${timeValue}`);
+            if (!dateValue || !timeValue || Number.isNaN(selectedDate.getTime())) {
+              showTicket({
+                error: true,
+                name: s.name,
+                meta: "Choose a valid attendance date and time first.",
+                time: timeLabel(new Date()),
+              });
+              return;
+            }
+            const saved = await recordAttendance(s, "manual-backfill", selectedDate);
+            if (saved) {
+              document.getElementById("manual-search").value = "";
+              renderManualList("");
+            }
           });
           row.appendChild(btn);
           list.appendChild(row);
@@ -1995,7 +2327,7 @@
 
         const pillRow = document.getElementById("dash-sessions");
         pillRow.innerHTML = "";
-        let liveSection = null;
+        const liveSections = [];
         Object.values(SECTIONS).forEach((sec) => {
           const sess = sessionForDate(sec.code, now);
           const pill = document.createElement("div");
@@ -2004,7 +2336,7 @@
             pill.innerHTML = `<span class="lbl">${sec.label}</span> — no class today`;
           } else {
             const isLive = now >= sess.start && now <= sess.end;
-            if (isLive) liveSection = sec.code;
+            if (isLive) liveSections.push(sec.code);
             pill.className = "session-pill" + (isLive ? " live" : "");
             pill.innerHTML = `<span class="lbl">${sec.label}</span> — ${formatHM(sess.startLabel)}–${formatHM(sess.endLabel)}${isLive ? " · live now" : ""}`;
           }
@@ -2012,7 +2344,7 @@
         });
 
         const liveWrap = document.getElementById("dash-live-section");
-        if (!liveSection) {
+        if (!liveSections.length) {
           liveWrap.innerHTML = `<div class="card empty-note">No class is running right now. Check back at the next scheduled session.</div>`;
           return;
         }
@@ -2024,33 +2356,40 @@
           allScans = [];
         }
         const dk = dateKey(now);
-        const todays = allScans.filter(
-          (r) => r.date === dk && r.section === liveSection,
-        );
-        const roster = STUDENTS.filter((s) => s.section === liveSection);
-        const onTime = todays.filter((r) => r.status === "On Time").length;
-        const late = todays.filter((r) => r.status === "Late").length;
-        const scannedIds = new Set(todays.map((r) => r.studentId));
-        const notYet = roster.filter((s) => !scannedIds.has(s.id));
+        let totalOnTime = 0,
+          totalLate = 0,
+          totalNotYet = 0;
+        let cards = "";
 
-        let html = `<div class="stat-grid">
-    <div class="stat-box ontime"><div class="num">${onTime}</div><div class="lbl">On time</div></div>
-    <div class="stat-box late"><div class="num">${late}</div><div class="lbl">Late</div></div>
-    <div class="stat-box absent"><div class="num">${notYet.length}</div><div class="lbl">Not yet in</div></div>
-  </div>
-  <div class="card"><div class="section-title">${SECTIONS[liveSection].label} — live roster</div>`;
+        liveSections.forEach((code) => {
+          const todays = allScans.filter(
+            (r) => r.date === dk && r.section === code,
+          );
+          const roster = STUDENTS.filter((s) => s.section === code);
+          const scannedIds = new Set(todays.map((r) => r.studentId));
+          totalOnTime += todays.filter((r) => r.status === "On Time").length;
+          totalLate += todays.filter((r) => r.status === "Late").length;
+          totalNotYet += roster.filter((s) => !scannedIds.has(s.id)).length;
 
-        roster.forEach((s) => {
-          const rec = todays.find((r) => r.studentId === s.id);
-          let badge = '<span class="badge waiting">Waiting</span>';
-          if (rec)
-            badge =
-              rec.status === "On Time"
-                ? '<span class="badge ontime">On time</span>'
-                : '<span class="badge late">Late</span>';
-          html += `<div class="roster-live-row"><span>${s.name}</span>${badge}</div>`;
+          cards += `<div class="card"><div class="section-title">${SECTIONS[code].label} — live roster</div>`;
+          roster.forEach((s) => {
+            const rec = todays.find((r) => r.studentId === s.id);
+            let badge = '<span class="badge waiting">Waiting</span>';
+            if (rec)
+              badge =
+                rec.status === "On Time"
+                  ? '<span class="badge ontime">On time</span>'
+                  : '<span class="badge late">Late</span>';
+            cards += `<div class="roster-live-row"><span>${s.name}</span>${badge}</div>`;
+          });
+          cards += `</div>`;
         });
-        html += `</div>`;
+
+        const html = `<div class="stat-grid">
+    <div class="stat-box ontime"><div class="num">${totalOnTime}</div><div class="lbl">On time</div></div>
+    <div class="stat-box late"><div class="num">${totalLate}</div><div class="lbl">Late</div></div>
+    <div class="stat-box absent"><div class="num">${totalNotYet}</div><div class="lbl">Not yet in</div></div>
+  </div>${cards}`;
         liveWrap.innerHTML = html;
       }
       function formatHM(hhmm) {
@@ -2654,9 +2993,9 @@
         const HELP = `Here's what I can answer:<br>
      • <b>Absences:</b> "How many absences does Cruz have this month?" · "...in July?" · "...overall?"<br>
      • <b>Lates:</b> "How many times was Mendoza late this month?"<br>
-     • <b>Present / today:</b> "Is Kessie present today?" · "When did Samuel check in today?"<br>
+     • <b>Present / today:</b> "Who are the students present today?" · "List students present today in CSS" · "Is Kessie present today?" · "When did Samuel check in today?"<br>
      • <b>Full summary:</b> "Attendance summary for Deloyas"<br>
-     • <b>Whole class:</b> "Who was absent yesterday?" · "How many absent today in CSS?"<br>
+     • <b>Whole class:</b> "Who was absent yesterday?" · "How many absent today in CSS?" · "Who was late today?"<br>
      • <b>Schedule:</b> "When is the Programming class?"<br>
      • <b>Roster:</b> "How many students are there?"`;
 
@@ -2788,22 +3127,13 @@
             secCode || "ALL",
           );
           if (!anySessionThatDay) return { nosession: true };
-          const list = rows.filter((r) =>
-            statusWanted ? r.status === statusWanted : true,
-          );
+          const list = AttendanceTools.filterAttendanceRows(rows, statusWanted);
           return { rows: list };
         }
 
-        function nameList(names, cap) {
-          if (!names.length) return "";
-          return (
-            "<br>" +
-            cap +
-            ": <b>" +
-            names.slice(0, 12).map(esc).join(", ") +
-            "</b>" +
-            (names.length > 12 ? ` … and ${names.length - 12} more` : "")
-          );
+        function nameList(items, label) {
+          if (!items.length) return "";
+          return `<br>${label ? `${label}:` : ""}${AttendanceTools.formatListHtml(items)}`;
         }
 
         /* ---------- intent routing ---------- */
@@ -2833,10 +3163,10 @@
             return rosterAnswer(detectSection(l));
 
           // "Who ..." questions about a whole day/class
-          if (/^who\b/.test(l)) {
+          if (AttendanceTools.isAttendanceListQuestion(l)) {
             const wantsLate = /\blate\b/.test(l),
               wantsPresent =
-                /\bpresent\b|\bon time\b|\bcame\b|\bchecked in\b|\bshowed up\b|\bin class\b/.test(
+                /\bpresent\b|\bon time\b|\bcame\b|\bchecked in\b|\bshowed up\b|\bin class\b|\bhere\b|\battended\b/.test(
                   l,
                 );
             const wantsAbsent =
@@ -2853,16 +3183,17 @@
                 : wantsLate
                   ? "Late"
                   : wantsPresent
-                    ? "On Time"
+                    ? "Present"
                     : null,
             );
             if (res.nosession)
-              return `No ${sec ? SECTIONS[sec].label + " " : ""}class was scheduled on ${fmtDk(dk)}, so nobody is marked absent.`;
+              return `No ${sec ? SECTIONS[sec].label + " " : ""}class was scheduled on ${fmtDk(dk)}.`;
             if (wantsAbsent || wantsLate || wantsPresent) {
-              const names = res.rows.map((r) => r.name.split(",")[0]);
+              const names = res.rows.map((r) => r.name);
+              const statusLabel = wantsAbsent ? "absent" : wantsLate ? "late" : "present";
               if (!names.length)
-                return `Nobody was marked ${wantsAbsent ? "absent" : wantsLate ? "late" : "on time"} on ${fmtDk(dk)}${sec ? " for " + SECTIONS[sec].label : ""}.`;
-              return `<b>${names.length}</b> ${wantsAbsent ? "absent" : wantsLate ? "late" : "on time"} on ${fmtDk(dk)}:${nameList(names, "")}`;
+                return `Nobody was marked ${statusLabel} on ${fmtDk(dk)}${sec ? " for " + SECTIONS[sec].label : ""}.`;
+              return `<b>${names.length}</b> ${statusLabel} on ${fmtDk(dk)}${sec ? " for " + SECTIONS[sec].label : ""}:${nameList(names, "")}`;
             }
             const absentNames = res.rows
               .filter((r) => r.status === "Absent")
@@ -2876,7 +3207,7 @@
           // Student-specific questions
           const match = findStudentMatch(q);
           if (match.ambiguous) {
-            const opts = match.list
+            const opts = match.ambiguous
               .map((s) => `${esc(s.name)} (${SECTIONS[s.section].label})`)
               .join("<br>• ");
             return `I found more than one student matching that name — which one did you mean?<br>• ${opts}<br><br>(Include a first name or the section and ask again.)`;
